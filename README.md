@@ -5,6 +5,8 @@
 Michaël Gharbi (<mgharbi@adobe.com>), Tzu-Mao Li, Miika Aittala, Jaakko
 Lehtinen, Frédo Durand
 
+Check out our [project page](http://groups.csail.mit.edu/graphics/rendernet/).
+
 
 ## Quick start
 
