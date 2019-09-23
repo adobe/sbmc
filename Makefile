@@ -8,7 +8,7 @@ PBRT?=_extras/rendernet_pbrt/src/bin/pbrt
 OBJ2PBRT?=_extras/rendernet_pbrt/src/bin/obj2pbrt
 
 # Data server
-REMOTE=http://ephesia/~mgharbi/sbmc
+REMOTE=https://data.csail.mit.edu/graphics/sbmc
 
 # Path to comparison code
 SEN2011?=_extras/comparisons/methods/2011_sen_rpf
