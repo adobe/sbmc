@@ -1,0 +1,4099 @@
+diff -uarN 2016_bitterli_nfor/CMakeLists.txt ../methods/2016_bitterli_nfor/CMakeLists.txt
+--- 2016_bitterli_nfor/CMakeLists.txt	2019-09-11 15:47:11.116790465 -0700
++++ ../methods/2016_bitterli_nfor/CMakeLists.txt	2019-09-11 11:31:25.358895516 -0700
+@@ -82,7 +82,7 @@
+ 		src/thirdparty/tribox/tribox.cpp)
+ 
+ if (CMAKE_COMPILER_IS_GNUCXX)
+-    set(CXX_WARNINGS "-Wall -Wextra -Wpointer-arith -Wcast-align -fstrict-aliasing -Wno-unused-local-typedefs -Wno-misleading-indentation -Wno-maybe-uninitialized -Wno-int-in-bool-context -Wno-implicit-fallthrough -Wno-class-memaccess")
++    set(CXX_WARNINGS "-Wall -Wextra -Wpointer-arith -Wcast-align -fstrict-aliasing -Wno-unused-local-typedefs -Wno-misleading-indentation -Wno-maybe-uninitialized -Wno-int-in-bool-context -Wno-implicit-fallthrough")
+     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_WARNINGS} -fvisibility-inlines-hidden")
+ endif()
+ set(core_libs core thirdparty embree)
+diff -uarN 2016_bitterli_nfor/.gitignore ../methods/2016_bitterli_nfor/.gitignore
+--- 2016_bitterli_nfor/.gitignore	2019-09-11 15:47:11.116790465 -0700
++++ ../methods/2016_bitterli_nfor/.gitignore	2019-09-11 11:31:25.358895516 -0700
+@@ -1,5 +1,4 @@
+-/*
+-/*/
++build/*
+ !/assets/
+ /assets/*
+ !/assets/materialtest/
+@@ -18,4 +17,23 @@
+ !/data/materialtest
+ !/data/mc-loader
+ !/data/shaders
+-!/cmake/
+\ No newline at end of file
++!/cmake/build
++
++cmake/CMakeCache.txt
++cmake/CMakeFiles/
++cmake/CPackConfig.cmake
++cmake/CPackSourceConfig.cmake
++cmake/Makefile
++cmake/cmake_install.cmake
++cmake/denoiser
++cmake/editor_autogen/
++cmake/hdrmanip
++cmake/json2xml
++cmake/libcore.a
++cmake/libthirdparty.a
++cmake/obj2json
++cmake/scenemanip
++cmake/src/
++cmake/tungsten
++cmake/tungsten_server
++
+diff -uarN 2016_bitterli_nfor/src/core/cameras/AtomicFramebuffer.hpp ../methods/2016_bitterli_nfor/src/core/cameras/AtomicFramebuffer.hpp
+--- 2016_bitterli_nfor/src/core/cameras/AtomicFramebuffer.hpp	2019-09-11 15:47:11.248791651 -0700
++++ ../methods/2016_bitterli_nfor/src/core/cameras/AtomicFramebuffer.hpp	2019-09-11 11:31:25.362895551 -0700
+@@ -77,9 +77,6 @@
+ 
+     inline void splat(Vec2u pixel, Vec3f w)
+     {
+-        if (std::isnan(w) || std::isinf(w))
+-            return;
+-
+         uint32 idx = pixel.x() + pixel.y()*_w;
+         atomicAdd(_buffer[idx].x(), w.x());
+         atomicAdd(_buffer[idx].y(), w.y());
+diff -uarN 2016_bitterli_nfor/src/core/cameras/Tonemap.cpp ../methods/2016_bitterli_nfor/src/core/cameras/Tonemap.cpp
+--- 2016_bitterli_nfor/src/core/cameras/Tonemap.cpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/cameras/Tonemap.cpp	2019-09-11 11:31:25.362895551 -0700
+@@ -6,8 +6,7 @@
+     {"linear", Tonemap::LinearOnly},
+     {"gamma", Tonemap::GammaOnly},
+     {"reinhard", Tonemap::Reinhard},
+-    {"filmic", Tonemap::Filmic},
+-    {"pbrt", Tonemap::Pbrt},
++    {"filmic", Tonemap::Filmic}
+ }))
+ 
+ }
+diff -uarN 2016_bitterli_nfor/src/core/cameras/Tonemap.hpp ../methods/2016_bitterli_nfor/src/core/cameras/Tonemap.hpp
+--- 2016_bitterli_nfor/src/core/cameras/Tonemap.hpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/cameras/Tonemap.hpp	2019-09-11 11:31:25.362895551 -0700
+@@ -14,8 +14,7 @@
+         LinearOnly,
+         GammaOnly,
+         Reinhard,
+-        Filmic,
+-        Pbrt
++        Filmic
+     };
+ 
+ public:
+@@ -34,15 +33,6 @@
+         case Filmic: {
+             Vec3f x = max(Vec3f(0.0f), c - 0.004f);
+             return (x*(6.2f*x + 0.5f))/(x*(6.2f*x + 1.7f) + 0.06f);
+-        } case Pbrt: {
+-            Vec3f result;
+-            for (int i = 0; i < 3; ++i) {
+-                if (c[i] < 0.0031308f)
+-                    result[i] = 12.92f*c[i];
+-                else
+-                    result[i] = 1.055f*std::pow(c[i], 1.0f/2.4f) - 0.055f;
+-            }
+-            return result;
+         }}
+         return c;
+     }
+diff -uarN 2016_bitterli_nfor/src/core/grids/Grid.hpp ../methods/2016_bitterli_nfor/src/core/grids/Grid.hpp
+--- 2016_bitterli_nfor/src/core/grids/Grid.hpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/grids/Grid.hpp	2019-09-11 11:31:25.362895551 -0700
+@@ -20,9 +20,9 @@
+     virtual Box3f bounds() const;
+ 
+     virtual float density(Vec3f p) const = 0;
+-    virtual Vec3f emission(Vec3f p) const = 0;
+-    virtual float opticalDepth(PathSampleGenerator &sampler, Vec3f p, Vec3f w, float t0, float t1) const = 0;
+-    virtual Vec2f inverseOpticalDepth(PathSampleGenerator &sampler, Vec3f p, Vec3f w, float t0, float t1, float xi) const = 0;
++    virtual Vec3f transmittance(PathSampleGenerator &sampler, Vec3f p, Vec3f w, float t0, float t1, Vec3f sigmaT) const = 0;
++    virtual Vec2f inverseOpticalDepth(PathSampleGenerator &sampler, Vec3f p, Vec3f w, float t0, float t1,
++            float sigmaT, float xi) const = 0;
+ };
+ 
+ }
+diff -uarN 2016_bitterli_nfor/src/core/grids/VdbGrid.cpp ../methods/2016_bitterli_nfor/src/core/grids/VdbGrid.cpp
+--- 2016_bitterli_nfor/src/core/grids/VdbGrid.cpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/grids/VdbGrid.cpp	2019-09-11 11:31:25.362895551 -0700
+@@ -14,6 +14,7 @@
+ #include "Debug.hpp"
+ 
+ #include <openvdb/tools/Interpolation.h>
++#include <iostream>
+ 
+ namespace Tungsten {
+ 
+@@ -63,15 +64,10 @@
+ }
+ 
+ VdbGrid::VdbGrid()
+-: _densityName("density"),
+-  _emissionName("Cd"),
++: _gridName("density"),
+   _integrationString("exact_nearest"),
+   _sampleString("exact_nearest"),
+   _stepSize(5.0f),
+-  _densityScale(1.0f),
+-  _emissionScale(1.0f),
+-  _scaleEmissionByDensity(true),
+-  _normalizeSize(true),
+   _supergridSubsample(10)
+ {
+     _integrationMethod = stringToIntegrationMethod(_integrationString);
+@@ -101,7 +97,7 @@
+     Vec2fGrid::Ptr minMaxGrid = Vec2fGrid::create(openvdb::Vec2s(1e30f, 0.0f));
+     auto minMaxAccessor = minMaxGrid->getAccessor();
+ 
+-    for (openvdb::FloatGrid::ValueOnCIter iter = _densityGrid->cbeginValueOn(); iter.test(); ++iter) {
++    for (openvdb::FloatGrid::ValueOnCIter iter = _grid->cbeginValueOn(); iter.test(); ++iter) {
+         openvdb::Coord coord = divideCoord(iter.getCoord());
+         float d = *iter;
+         accessor.setValue(coord, openvdb::Vec2s(accessor.getValue(coord).x() + d, 0.0f));
+@@ -124,7 +120,7 @@
+         iter.setValue(openvdb::Vec2s(muC, 0.0f));
+     }
+ 
+-    for (openvdb::FloatGrid::ValueOnCIter iter = _densityGrid->cbeginValueOn(); iter.test(); ++iter) {
++    for (openvdb::FloatGrid::ValueOnCIter iter = _grid->cbeginValueOn(); iter.test(); ++iter) {
+         openvdb::Coord coord = divideCoord(iter.getCoord());
+         openvdb::Vec2s v = accessor.getValue(coord);
+         float residual = max(v.y(), std::abs(*iter - v.x()));
+@@ -135,13 +131,7 @@
+ void VdbGrid::fromJson(JsonPtr value, const Scene &scene)
+ {
+     if (auto path = value["file"]) _path = scene.fetchResource(path);
+-    value.getField("grid_name", _densityName); /* Deprecated field for density grid name */
+-    value.getField("density_name", _densityName);
+-    value.getField("density_scale", _densityScale);
+-    value.getField("emission_name", _emissionName);
+-    value.getField("emission_scale", _emissionScale);
+-    value.getField("scale_emission_by_density", _scaleEmissionByDensity);
+-    value.getField("normalize_size", _normalizeSize);
++    value.getField("grid_name", _gridName);
+     value.getField("integration_method", _integrationString);
+     value.getField("sampling_method", _sampleString);
+     value.getField("step_size", _stepSize);
+@@ -157,12 +147,7 @@
+     JsonObject result{Grid::toJson(allocator), allocator,
+         "type", "vdb",
+         "file", *_path,
+-        "density_name", _densityName,
+-        "density_scale", _densityScale,
+-        "emission_name", _emissionName,
+-        "emission_scale", _emissionScale,
+-        "scale_emission_by_density", _scaleEmissionByDensity,
+-        "normalize_size", _normalizeSize,
++        "grid_name", _gridName,
+         "integration_method", _integrationString,
+         "sampling_method", _sampleString,
+         "transform", _configTransform
+@@ -184,64 +169,25 @@
+         FAIL("Failed to open vdb file at '%s': %s", *_path, e.what());
+     }
+ 
+-    openvdb::GridBase::Ptr ptr;
+-    try {
+-        ptr = file.readGrid(_densityName);
+-    } catch(const std::exception &) {
+-        ptr = nullptr;
+-    };
++    openvdb::GridBase::Ptr ptr = file.readGrid(_gridName);
+     if (!ptr)
+-        FAIL("Failed to read density grid '%s' from vdb file '%s'", _densityName, *_path);
+-
+-    openvdb::GridBase::Ptr emissionPtr;
+-    try {
+-        emissionPtr = file.readGrid(_emissionName);
+-    } catch(const std::exception &) {
+-        emissionPtr = nullptr;
+-    };
++        FAIL("Failed to read grid '%s' from vdb file '%s'", _gridName, *_path);
+ 
+     file.close();
+ 
+-    _densityGrid = openvdb::gridPtrCast<openvdb::FloatGrid>(ptr);
+-    if (!_densityGrid)
+-        FAIL("Failed to read grid '%s' from vdb file '%s': Grid is not a FloatGrid", _densityName, *_path);
+-
+-    auto accessor = _densityGrid->getAccessor();
+-    for (openvdb::FloatGrid::ValueOnIter iter = _densityGrid->beginValueOn(); iter.test(); ++iter)
+-        iter.setValue((*iter)*_densityScale);
+-
+-    Vec3d densityCenter (ptr->transform().indexToWorld(openvdb::Vec3d(0, 0, 0)).asPointer());
+-    Vec3d densitySpacing(ptr->transform().indexToWorld(openvdb::Vec3d(1, 1, 1)).asPointer());
+-    densitySpacing -= densityCenter;
+-
+-    Vec3d emissionCenter, emissionSpacing;
+-    if (emissionPtr) {
+-        emissionCenter  = Vec3d(emissionPtr->transform().indexToWorld(openvdb::Vec3d(0, 0, 0)).asPointer());
+-        emissionSpacing = Vec3d(emissionPtr->transform().indexToWorld(openvdb::Vec3d(1, 1, 1)).asPointer());
+-        emissionSpacing -= emissionCenter;
+-        _emissionGrid = openvdb::gridPtrCast<openvdb::Vec3fGrid>(emissionPtr);
+-    } else {
+-        emissionCenter = densityCenter;
+-        emissionSpacing = densitySpacing;
+-        _emissionGrid = nullptr;
+-    }
+-    _emissionIndexOffset = Vec3f((densityCenter - emissionCenter)/emissionSpacing);
++    _grid = openvdb::gridPtrCast<openvdb::FloatGrid>(ptr);
++    if (!_grid)
++        FAIL("Failed to read grid '%s' from vdb file '%s': Grid is not a FloatGrid", _gridName, *_path);
+ 
+-    openvdb::CoordBBox bbox = _densityGrid->evalActiveVoxelBoundingBox();
++    openvdb::CoordBBox bbox = _grid->evalActiveVoxelBoundingBox();
+     Vec3i minP = Vec3i(bbox.min().x(), bbox.min().y(), bbox.min().z());
+     Vec3i maxP = Vec3i(bbox.max().x(), bbox.max().y(), bbox.max().z()) + 1;
+     Vec3f diag = Vec3f(maxP - minP);
++    float scale = 1.0f/diag.max();
++    diag *= scale;
++    Vec3f center = Vec3f(minP)*scale + Vec3f(diag.x(), 0.0f, diag.z())*0.5f;
+ 
+-    float scale;
+-    Vec3f center;
+-    if (_normalizeSize) {
+-        scale = 1.0f/diag.max();
+-        diag *= scale;
+-        center = Vec3f(minP)*scale + Vec3f(diag.x(), 0.0f, diag.z())*0.5f;
+-    } else {
+-        scale = densitySpacing.min();
+-        center = -Vec3f(densityCenter);
+-    }
++    std::cout << minP << " -> " << maxP << std::endl;
+ 
+     if (_integrationMethod == IntegrationMethod::ResidualRatio)
+         generateSuperGrid();
+@@ -251,8 +197,8 @@
+     _bounds = Box3f(Vec3f(minP), Vec3f(maxP));
+ 
+     if (_sampleMethod == SampleMethod::ExactLinear || _integrationMethod == IntegrationMethod::ExactLinear) {
+-        auto accessor = _densityGrid->getAccessor();
+-        for (openvdb::FloatGrid::ValueOnCIter iter = _densityGrid->cbeginValueOn(); iter.test(); ++iter) {
++        auto accessor = _grid->getAccessor();
++        for (openvdb::FloatGrid::ValueOnCIter iter = _grid->cbeginValueOn(); iter.test(); ++iter) {
+             if (*iter != 0.0f)
+                 for (int z = -1; z <= 1; ++z)
+                     for (int y = -1; y <= 1; ++y)
+@@ -288,25 +234,12 @@
+ 
+ float VdbGrid::density(Vec3f p) const
+ {
+-    return gridAt(_densityGrid->tree(), p);
++    return gridAt(_grid->tree(), p);
+ }
+ 
+-Vec3f VdbGrid::emission(Vec3f p) const
++Vec3f VdbGrid::transmittance(PathSampleGenerator &sampler, Vec3f p, Vec3f w, float t0, float t1, Vec3f sigmaT) const
+ {
+-    if (_emissionGrid) {
+-        Vec3f op = p + _emissionIndexOffset;
+-        Vec3f result = _emissionScale*Vec3f(openvdb::tools::BoxSampler::sample(_emissionGrid->tree(), openvdb::Vec3R(op.x(), op.y(), op.z())).asPointer());
+-        if (_scaleEmissionByDensity)
+-            result *= density(p);
+-        return result;
+-    } else {
+-        return Vec3f(0.0f);
+-    }
+-}
+-
+-float VdbGrid::opticalDepth(PathSampleGenerator &sampler, Vec3f p, Vec3f w, float t0, float t1) const
+-{
+-    auto accessor = _densityGrid->getConstAccessor();
++    auto accessor = _grid->getConstAccessor();
+ 
+     if (_integrationMethod == IntegrationMethod::ExactNearest) {
+         VdbRaymarcher<openvdb::FloatGrid::TreeType, 3> dda;
+@@ -316,7 +249,7 @@
+             integral += accessor.getValue(voxel)*(tb - ta);
+             return false;
+         });
+-        return integral;
++        return std::exp(-integral*sigmaT);
+     } else if (_integrationMethod == IntegrationMethod::ExactLinear) {
+         VdbRaymarcher<openvdb::FloatGrid::TreeType, 3> dda;
+ 
+@@ -328,24 +261,27 @@
+             fa = fb;
+             return false;
+         });
+-        return integral;
++        return std::exp(-integral*sigmaT);
+     } else if (_integrationMethod == IntegrationMethod::ResidualRatio) {
+         VdbRaymarcher<Vec2fGrid::TreeType, 3> dda;
+ 
+         float scale = _supergridSubsample;
+         float invScale = 1.0f/scale;
++        sigmaT *= scale;
++
++        float sigmaTc = sigmaT.max();
+ 
+         auto superAccessor =  _superGrid->getConstAccessor();
+ 
+         UniformSampler &generator = sampler.uniformGenerator();
+ 
+         float controlIntegral = 0.0f;
+-        float Tr = 1.0f;
++        Vec3f Tr(1.0f);
+         dda.march(DdaRay(p*invScale + 0.5f, w), t0*invScale, t1*invScale, superAccessor, [&](openvdb::Coord voxel, float ta, float tb) {
+             openvdb::Vec2s v = superAccessor.getValue(voxel);
+             float muC = v.x();
+             float muR = v.y();
+-            muR *= scale;
++            muR *= sigmaTc;
+ 
+             controlIntegral += muC*(tb - ta);
+ 
+@@ -353,12 +289,12 @@
+                 ta -= BitManip::normalizedLog(generator.nextI())/muR;
+                 if (ta >= tb)
+                     break;
+-                Tr *= 1.0f - scale*((gridAt(accessor, p + w*ta*scale) - muC)/muR);
++                Tr *= 1.0f - sigmaT*((gridAt(accessor, p + w*ta*scale) - muC)/muR);
+             }
+ 
+             return false;
+         });
+-        return controlIntegral - std::log(Tr);
++        return std::exp(-controlIntegral*sigmaT)*Tr;
+     } else {
+         float ta = t0;
+         float fa = gridAt(accessor, p + w*t0);
+@@ -372,13 +308,14 @@
+             fa = fb;
+             dT = _stepSize;
+         } while (ta < t1);
+-        return integral;
++        return std::exp(-integral*sigmaT);
+     }
+ }
+ 
+-Vec2f VdbGrid::inverseOpticalDepth(PathSampleGenerator &sampler, Vec3f p, Vec3f w, float t0, float t1, float tau) const
++Vec2f VdbGrid::inverseOpticalDepth(PathSampleGenerator &sampler, Vec3f p, Vec3f w, float t0, float t1,
++        float sigmaT, float xi) const
+ {
+-    auto accessor = _densityGrid->getConstAccessor();
++    auto accessor = _grid->getConstAccessor();
+ 
+     if (_sampleMethod == SampleMethod::ExactNearest) {
+         VdbRaymarcher<openvdb::FloatGrid::TreeType, 3> dda;
+@@ -387,9 +324,9 @@
+         Vec2f result(t1, 0.0f);
+         bool exited = !dda.march(DdaRay(p + 0.5f, w), t0, t1, accessor, [&](openvdb::Coord voxel, float ta, float tb) {
+             float v = accessor.getValue(voxel);
+-            float delta = v*(tb - ta);
+-            if (integral + delta >= tau) {
+-                result = Vec2f(ta + (tb - ta)*(tau - integral)/delta, v);
++            float delta = v*sigmaT*(tb - ta);
++            if (integral + delta >= xi) {
++                result = Vec2f(ta + (tb - ta)*(xi - integral)/delta, v);
+                 return true;
+             }
+             integral += delta;
+@@ -404,19 +341,13 @@
+         Vec2f result(t1, 0.0f);
+         bool exited = !dda.march(DdaRay(p + 0.5f, w), t0, t1, accessor, [&](openvdb::Coord /*voxel*/, float ta, float tb) {
+             float fb = gridAt(accessor, p + tb*w);
+-            float delta = (fb + fa)*0.5f*(tb - ta);
+-            if (integral + delta >= tau) {
+-                float a = (fb - fa);
+-                float b = fa;
+-                float c = (integral - tau)/(tb - ta);
+-                float x1;
+-                if (std::abs(a) < 1e-6f) {
+-                    x1 = -c/b;
+-                } else {
+-                    float mantissa = max(b*b - 2.0f*a*c, 0.0f);
+-                    x1 = (-b + std::sqrt(mantissa))/a;
+-                }
+-                x1 = clamp(x1, 0.0f, 1.0f);
++            float delta = (fb + fa)*0.5f*sigmaT*(tb - ta);
++            if (integral + delta >= xi) {
++                float a = (fb - fa)*sigmaT;
++                float b = fa*sigmaT;
++                float c = (integral - xi)/(tb - ta);
++                float mantissa = max(b*b - 2.0f*a*c, 0.0f);
++                float x1 = (-b + std::sqrt(mantissa))/a;
+                 result = Vec2f(ta + (tb - ta)*x1, fa + (fb - fa)*x1);
+                 return true;
+             }
+@@ -433,11 +364,11 @@
+         do {
+             float tb = min(ta + dT, t1);
+             float fb = gridAt(accessor, p + w*tb);
+-            float delta = (fa + fb)*0.5f*(tb - ta);
+-            if (integral + delta >= tau) {
+-                float a = (fb - fa);
+-                float b = fa;
+-                float c = (integral - tau)/(tb - ta);
++            float delta = (fa + fb)*sigmaT*0.5f*(tb - ta);
++            if (integral + delta >= xi) {
++                float a = (fb - fa)*sigmaT;
++                float b = fa*sigmaT;
++                float c = (integral - xi)/(tb - ta);
+                 float mantissa = max(b*b - 2.0f*a*c, 0.0f);
+                 float x1 = (-b + std::sqrt(mantissa))/a;
+                 return Vec2f(ta + (tb - ta)*x1, fa + (fb - fa)*x1);
+diff -uarN 2016_bitterli_nfor/src/core/grids/VdbGrid.hpp ../methods/2016_bitterli_nfor/src/core/grids/VdbGrid.hpp
+--- 2016_bitterli_nfor/src/core/grids/VdbGrid.hpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/grids/VdbGrid.hpp	2019-09-11 11:31:25.362895551 -0700
+@@ -31,25 +31,17 @@
+     typedef openvdb::Grid<Vec2fTree> Vec2fGrid;
+ 
+     PathPtr _path;
+-    std::string _densityName;
+-    std::string _emissionName;
++    std::string _gridName;
+     std::string _integrationString;
+     std::string _sampleString;
+     float _stepSize;
+-    float _densityScale;
+-    float _emissionScale;
+-    bool _scaleEmissionByDensity;
+-    bool _normalizeSize;
+     int _supergridSubsample;
+     Mat4f _configTransform;
+     Mat4f _invConfigTransform;
+ 
+-    Vec3f _emissionIndexOffset;
+-
+     IntegrationMethod _integrationMethod;
+     SampleMethod _sampleMethod;
+-    openvdb::FloatGrid::Ptr _densityGrid;
+-    openvdb::Vec3fGrid::Ptr _emissionGrid;
++    openvdb::FloatGrid::Ptr _grid;
+     Vec2fGrid::Ptr _superGrid;
+     Mat4f _transform;
+     Mat4f _invTransform;
+@@ -76,9 +68,9 @@
+     virtual Box3f bounds() const override;
+ 
+     float density(Vec3f p) const override;
+-    Vec3f emission(Vec3f p) const override;
+-    float opticalDepth(PathSampleGenerator &sampler, Vec3f p, Vec3f w, float t0, float t1) const override;
+-    Vec2f inverseOpticalDepth(PathSampleGenerator &sampler, Vec3f p, Vec3f w, float t0, float t1, float tau) const override;
++    Vec3f transmittance(PathSampleGenerator &sampler, Vec3f p, Vec3f w, float t0, float t1, Vec3f sigmaT) const override;
++    Vec2f inverseOpticalDepth(PathSampleGenerator &sampler, Vec3f p, Vec3f w, float t0, float t1,
++            float sigmaT, float xi) const override;
+ };
+ 
+ }
+diff -uarN 2016_bitterli_nfor/src/core/integrators/bidirectional_path_tracer/LightPath.cpp ../methods/2016_bitterli_nfor/src/core/integrators/bidirectional_path_tracer/LightPath.cpp
+--- 2016_bitterli_nfor/src/core/integrators/bidirectional_path_tracer/LightPath.cpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/integrators/bidirectional_path_tracer/LightPath.cpp	2019-09-11 11:31:25.362895551 -0700
+@@ -96,25 +96,19 @@
+ float LightPath::misWeight(const LightPath &camera, const LightPath &emitter,
+             const PathEdge &edge, int s, int t, float *ratios)
+ {
+-    float *pdfForward           = reinterpret_cast<float *>(alloca((s + t)*sizeof(float)));
+-    float *pdfBackward          = reinterpret_cast<float *>(alloca((s + t)*sizeof(float)));
+-    bool  *connectable          = reinterpret_cast<bool  *>(alloca((s + t)*sizeof(bool)));
+-    const PathVertex **vertices = reinterpret_cast<const PathVertex **>(alloca((s + t)*sizeof(const PathVertex *)));
+-
+-    if (!camera[t - 1].segmentConnectable(emitter[s - 1]))
+-        return 0.0f;
++    float *pdfForward  = reinterpret_cast<float *>(alloca((s + t)*sizeof(float)));
++    float *pdfBackward = reinterpret_cast<float *>(alloca((s + t)*sizeof(float)));
++    bool  *connectable = reinterpret_cast<bool  *>(alloca((s + t)*sizeof(bool)));
+ 
+     for (int i = 0; i < s; ++i) {
+         pdfForward [i] = emitter[i].pdfForward();
+         pdfBackward[i] = emitter[i].pdfBackward();
+         connectable[i] = !emitter[i].isDirac();
+-        vertices   [i] = &emitter[i];
+     }
+     for (int i = 0; i < t; ++i) {
+         pdfForward [s + t - (i + 1)] = camera[i].pdfBackward();
+         pdfBackward[s + t - (i + 1)] = camera[i].pdfForward();
+         connectable[s + t - (i + 1)] = !camera[i].isDirac();
+-        vertices   [s + t - (i + 1)] = &camera[i];
+     }
+     connectable[s - 1] = connectable[s] = true;
+ 
+@@ -143,7 +137,7 @@
+         ratios[s] = 1.0f;
+     for (int i = s + 1; i < s + t; ++i) {
+         pi *= pdfForward[i - 1]/pdfBackward[i - 1];
+-        if (connectable[i - 1] && connectable[i] && vertices[i - 1]->segmentConnectable(*vertices[i])) {
++        if (connectable[i - 1] && connectable[i]) {
+             weight += pi;
+             if (ratios)
+                 ratios[i] = pi;
+@@ -155,7 +149,7 @@
+     pi = 1.0f;
+     for (int i = s - 1; i >= 1; --i) {
+         pi *= pdfBackward[i]/pdfForward[i];
+-        if (connectable[i - 1] && connectable[i] && vertices[i - 1]->segmentConnectable(*vertices[i])) {
++        if (connectable[i - 1] && connectable[i]) {
+             weight += pi;
+             if (ratios)
+                 ratios[i] = pi;
+@@ -172,7 +166,7 @@
+     } else {
+         if (ratios)
+             ratios[0] = 0.0f;
+-    }
++     }
+ 
+     return 1.0f/weight;
+ }
+diff -uarN 2016_bitterli_nfor/src/core/integrators/bidirectional_path_tracer/PathVertex.cpp ../methods/2016_bitterli_nfor/src/core/integrators/bidirectional_path_tracer/PathVertex.cpp
+--- 2016_bitterli_nfor/src/core/integrators/bidirectional_path_tracer/PathVertex.cpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/integrators/bidirectional_path_tracer/PathVertex.cpp	2019-09-11 11:31:25.362895551 -0700
+@@ -160,7 +160,7 @@
+         hitSurface = mediumRecord.mediumSample.exited;
+         edgePdfForward = mediumRecord.mediumSample.pdf;
+         Ray reverseRay(mediumRecord.mediumSample.p, -state.ray.dir(), 0.0f, mediumRecord.mediumSample.t);
+-        edgePdfBackward = state.medium->pdf(state.sampler, reverseRay, hitSurface, onSurface());
++        edgePdfBackward = state.medium->pdf(state.sampler, reverseRay, onSurface());
+         weight *= mediumRecord.mediumSample.weight;
+         if (hitSurface && !didHit)
+             return false;
+@@ -327,14 +327,6 @@
+     }}
+ }
+ 
+-bool PathVertex::segmentConnectable(const PathVertex &next) const
+-{
+-    if (onSurface() || next.onSurface())
+-        return true;
+-
+-    return !_medium->isDirac();
+-}
+-
+ void PathVertex::pointerFixup()
+ {
+     // Yuck. It's best not to ask.
+diff -uarN 2016_bitterli_nfor/src/core/integrators/bidirectional_path_tracer/PathVertex.hpp ../methods/2016_bitterli_nfor/src/core/integrators/bidirectional_path_tracer/PathVertex.hpp
+--- 2016_bitterli_nfor/src/core/integrators/bidirectional_path_tracer/PathVertex.hpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/integrators/bidirectional_path_tracer/PathVertex.hpp	2019-09-11 11:31:25.362895551 -0700
+@@ -132,7 +132,6 @@
+     Vec3f eval(const Vec3f &d, bool adjoint) const;
+     void evalPdfs(const PathVertex *prev, const PathEdge *prevEdge, const PathVertex &next,
+             const PathEdge &nextEdge, float *forward, float *backward) const;
+-    bool segmentConnectable(const PathVertex &next) const;
+ 
+     void pointerFixup();
+ 
+diff -uarN 2016_bitterli_nfor/src/core/integrators/light_tracer/LightTracer.cpp ../methods/2016_bitterli_nfor/src/core/integrators/light_tracer/LightTracer.cpp
+--- 2016_bitterli_nfor/src/core/integrators/light_tracer/LightTracer.cpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/integrators/light_tracer/LightTracer.cpp	2019-09-11 11:31:25.362895551 -0700
+@@ -4,7 +4,6 @@
+ 
+ LightTracer::LightTracer(TraceableScene *scene, const LightTracerSettings &settings, uint32 threadId)
+ : TraceBase(scene, settings, threadId),
+-  _settings(settings),
+   _splatBuffer(scene->cam().splatBuffer())
+ {
+ }
+@@ -29,7 +28,7 @@
+         Ray shadowRay(point.p, splat.d);
+         shadowRay.setFarT(splat.dist);
+ 
+-        Vec3f transmission = generalizedShadowRay(sampler, shadowRay, medium, nullptr, true, true, 0);
++        Vec3f transmission = generalizedShadowRay(sampler, shadowRay, medium, nullptr, 0);
+         if (transmission != 0.0f) {
+             Vec3f value = throughput*transmission*splat.weight
+                     *light->evalDirectionalEmission(point, DirectionSample(splat.d));
+@@ -48,7 +47,6 @@
+     state.reset();
+     Vec3f emission(0.0f);
+ 
+-    int bounceSinceSurface = 0;
+     int bounce = 0;
+     bool wasSpecular = true;
+     bool didHit = _scene->intersect(ray, data, info);
+@@ -64,33 +62,25 @@
+         }
+ 
+         if (hitSurface) {
+-            bounceSinceSurface = 0;
+             surfaceEvent = makeLocalScatterEvent(data, info, ray, &sampler);
+ 
+-            if (_settings.includeSurfaces) {
+-                Vec3f weight;
+-                Vec2f pixel;
+-                if (surfaceLensSample(_scene->cam(), surfaceEvent, medium, bounce + 1, ray, weight, pixel))
+-                    _splatBuffer->splatFiltered(pixel, weight*throughput);
+-            }
++            Vec3f weight;
++            Vec2f pixel;
++            if (surfaceLensSample(_scene->cam(), surfaceEvent, medium, bounce + 1, ray, weight, pixel))
++                _splatBuffer->splatFiltered(pixel, weight*throughput);
+ 
+             if (!handleSurface(surfaceEvent, data, info, medium, bounce,
+                     true, false, ray, throughput, emission, wasSpecular, state))
+                 break;
+         } else {
+-            bounceSinceSurface++;
+-
+-            if (bounceSinceSurface >= 2 || _settings.lowOrderScattering) {
+-                Vec3f weight;
+-                Vec2f pixel;
+-                if (volumeLensSample(_scene->cam(), sampler, mediumSample, medium, bounce + 1, ray, weight, pixel))
+-                    _splatBuffer->splatFiltered(pixel, weight*throughput);
+-            }
++            Vec3f weight;
++            Vec2f pixel;
++            if (volumeLensSample(_scene->cam(), sampler, mediumSample, medium, bounce + 1, ray, weight, pixel))
++                _splatBuffer->splatFiltered(pixel, weight*throughput);
+ 
+             if (!handleVolume(sampler, mediumSample, medium, bounce,
+                     true, false, ray, throughput, emission, wasSpecular))
+                 break;
+-
+         }
+ 
+         if (throughput.max() == 0.0f)
+diff -uarN 2016_bitterli_nfor/src/core/integrators/light_tracer/LightTracer.hpp ../methods/2016_bitterli_nfor/src/core/integrators/light_tracer/LightTracer.hpp
+--- 2016_bitterli_nfor/src/core/integrators/light_tracer/LightTracer.hpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/integrators/light_tracer/LightTracer.hpp	2019-09-11 11:31:25.362895551 -0700
+@@ -9,7 +9,6 @@
+ 
+ class LightTracer : public TraceBase
+ {
+-    LightTracerSettings _settings;
+     AtomicFramebuffer *_splatBuffer;
+ 
+ public:
+diff -uarN 2016_bitterli_nfor/src/core/integrators/light_tracer/LightTracerSettings.hpp ../methods/2016_bitterli_nfor/src/core/integrators/light_tracer/LightTracerSettings.hpp
+--- 2016_bitterli_nfor/src/core/integrators/light_tracer/LightTracerSettings.hpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/integrators/light_tracer/LightTracerSettings.hpp	2019-09-11 11:31:25.362895551 -0700
+@@ -9,28 +9,19 @@
+ 
+ struct LightTracerSettings : public TraceSettings
+ {
+-    bool lowOrderScattering;
+-    bool includeSurfaces;
+-
+     LightTracerSettings()
+-    : lowOrderScattering(true),
+-      includeSurfaces(true)
+     {
+     }
+ 
+     void fromJson(JsonPtr value)
+     {
+         TraceSettings::fromJson(value);
+-        value.getField("low_order_scattering", lowOrderScattering);
+-        value.getField("include_surfaces", includeSurfaces);
+     }
+ 
+     rapidjson::Value toJson(rapidjson::Document::AllocatorType &allocator) const
+     {
+         return JsonObject{TraceSettings::toJson(allocator), allocator,
+-            "type", "light_tracer",
+-            "low_order_scattering", lowOrderScattering,
+-            "include_surfaces", includeSurfaces
++            "type", "light_tracer"
+         };
+     }
+ };
+diff -uarN 2016_bitterli_nfor/src/core/integrators/path_tracer/PathTracer.cpp ../methods/2016_bitterli_nfor/src/core/integrators/path_tracer/PathTracer.cpp
+--- 2016_bitterli_nfor/src/core/integrators/path_tracer/PathTracer.cpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/integrators/path_tracer/PathTracer.cpp	2019-09-11 11:31:25.362895551 -0700
+@@ -43,17 +43,14 @@
+     bool recordedOutputValues = false;
+     float hitDistance = 0.0f;
+ 
+-    int mediumBounces = 0;
+     int bounce = 0;
+     bool didHit = _scene->intersect(ray, data, info);
+     bool wasSpecular = true;
+     while ((didHit || medium) && bounce < _settings.maxBounces) {
+         bool hitSurface = true;
+         if (medium) {
+-            mediumSample.continuedWeight = throughput;
+             if (!medium->sampleDistance(sampler, ray, state, mediumSample))
+                 return emission;
+-            emission += throughput*mediumSample.emission;
+             throughput *= mediumSample.weight;
+             hitSurface = mediumSample.exited;
+             if (hitSurface && !didHit)
+@@ -63,17 +60,10 @@
+         if (hitSurface) {
+             hitDistance += ray.farT();
+ 
+-            if (mediumBounces == 1 && !_settings.lowOrderScattering)
+-                return emission;
+-
+             surfaceEvent = makeLocalScatterEvent(data, info, ray, &sampler);
+             Vec3f transmittance(-1.0f);
+             bool terminate = !handleSurface(surfaceEvent, data, info, medium, bounce, false,
+-                    _settings.enableLightSampling && (mediumBounces > 0 || _settings.includeSurfaces), ray, throughput, emission, wasSpecular, state, &transmittance);
+-
+-            if (!info.bsdf->lobes().isPureDirac())
+-                if (mediumBounces == 0 && !_settings.includeSurfaces)
+-                    return emission;
++                    _settings.enableLightSampling, ray, throughput, emission, wasSpecular, state, &transmittance);
+ 
+             if (_trackOutputValues && !recordedOutputValues && (!wasSpecular || terminate)) {
+                 if (_scene->cam().depthBuffer())
+@@ -98,10 +88,8 @@
+             if (terminate)
+                 return emission;
+         } else {
+-            mediumBounces++;
+-
+             if (!handleVolume(sampler, mediumSample, medium, bounce, false,
+-                _settings.enableVolumeLightSampling && (mediumBounces > 1 || _settings.lowOrderScattering), ray, throughput, emission, wasSpecular))
++                    _settings.enableVolumeLightSampling, ray, throughput, emission, wasSpecular))
+                 return emission;
+         }
+ 
+diff -uarN 2016_bitterli_nfor/src/core/integrators/path_tracer/PathTracerSettings.hpp ../methods/2016_bitterli_nfor/src/core/integrators/path_tracer/PathTracerSettings.hpp
+--- 2016_bitterli_nfor/src/core/integrators/path_tracer/PathTracerSettings.hpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/integrators/path_tracer/PathTracerSettings.hpp	2019-09-11 11:31:25.362895551 -0700
+@@ -11,14 +11,10 @@
+ {
+     bool enableLightSampling;
+     bool enableVolumeLightSampling;
+-    bool lowOrderScattering;
+-    bool includeSurfaces;
+ 
+     PathTracerSettings()
+     : enableLightSampling(true),
+-      enableVolumeLightSampling(true),
+-      lowOrderScattering(true),
+-      includeSurfaces(true)
++      enableVolumeLightSampling(true)
+     {
+     }
+ 
+@@ -27,8 +23,6 @@
+         TraceSettings::fromJson(value);
+         value.getField("enable_light_sampling", enableLightSampling);
+         value.getField("enable_volume_light_sampling", enableVolumeLightSampling);
+-        value.getField("low_order_scattering", lowOrderScattering);
+-        value.getField("include_surfaces", includeSurfaces);
+     }
+ 
+     rapidjson::Value toJson(rapidjson::Document::AllocatorType &allocator) const
+@@ -36,9 +30,7 @@
+         return JsonObject{TraceSettings::toJson(allocator), allocator,
+             "type", "path_tracer",
+             "enable_light_sampling", enableLightSampling,
+-            "enable_volume_light_sampling", enableVolumeLightSampling,
+-            "low_order_scattering", lowOrderScattering,
+-            "include_surfaces", includeSurfaces
++            "enable_volume_light_sampling", enableVolumeLightSampling
+         };
+     }
+ };
+diff -uarN 2016_bitterli_nfor/src/core/integrators/photon_map/PhotonTracer.cpp ../methods/2016_bitterli_nfor/src/core/integrators/photon_map/PhotonTracer.cpp
+--- 2016_bitterli_nfor/src/core/integrators/photon_map/PhotonTracer.cpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/integrators/photon_map/PhotonTracer.cpp	2019-09-11 11:31:25.362895551 -0700
+@@ -128,7 +128,7 @@
+         mediumQuery.setFarT(t);
+         beamEstimate += medium->sigmaT(hitPoint)*invSinTheta/(2.0f*radius)
+                 *medium->phaseFunction(hitPoint)->eval(beam.dir, -ray.dir())
+-                *medium->transmittance(sampler, mediumQuery, true, false)*beam.power;
++                *medium->transmittance(sampler, mediumQuery)*beam.power;
+ 
+         return true;
+     }
+@@ -149,7 +149,7 @@
+             mediumQuery.setFarT(t);
+             beamEstimate += sqr(medium->sigmaT(hitPoint))*std::abs(invDet)
+                     *medium->phaseFunction(hitPoint)->eval(p.d1, -ray.dir())
+-                    *medium->transmittance(sampler, mediumQuery, true, false)*p.power;
++                    *medium->transmittance(sampler, mediumQuery)*p.power;
+ 
+             return true;
+         }
+@@ -187,7 +187,7 @@
+             Ray mediumQuery(ray);
+             mediumQuery.setFarT(t);
+ 
+-            controlVariate -= medium->transmittance(sampler, mediumQuery, true, false)*(maxT - minT);
++            controlVariate -= medium->transmittance(sampler, mediumQuery)*(maxT - minT);
+         }
+ 
+         beamEstimate += sqr(medium->sigmaT(v2))*medium->phaseFunction(v2)->eval(p.d1, -ray.dir())*p.power*controlVariate;
+@@ -289,7 +289,7 @@
+                     mediumQuery.setFarT(t);
+                     estimate += (3.0f*INV_PI*sqr(1.0f - distSq/p.radiusSq))/p.radiusSq
+                             *medium->phaseFunction(p.pos)->eval(p.dir, -ray.dir())
+-                            *medium->transmittance(sampler, mediumQuery, true, false)*p.power;
++                            *medium->transmittance(sampler, mediumQuery)*p.power;
+                 };
+                 auto beamContribution = [&](uint32 photonIndex, const Vec3pf *bounds, float tMin, float tMax) {
+                     const PhotonBeam &beam = beams[photonIndex];
+@@ -343,7 +343,7 @@
+ 
+                 result += throughput*estimate;
+             }
+-            throughput *= medium->transmittance(sampler, ray, true, true);
++            throughput *= medium->transmittance(sampler, ray);
+         }
+         if (!didHit || !includeSurfaces)
+             break;
+diff -uarN 2016_bitterli_nfor/src/core/integrators/TraceBase.cpp ../methods/2016_bitterli_nfor/src/core/integrators/TraceBase.cpp
+--- 2016_bitterli_nfor/src/core/integrators/TraceBase.cpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/integrators/TraceBase.cpp	2019-09-11 11:31:25.362895551 -0700
+@@ -108,7 +108,7 @@
+                 pdfForward *= forward;
+                 pdfBackward *= backward;
+             } else {
+-                throughput *= medium->transmittance(sampler, ray, startsOnSurface, endsOnSurface);
++                throughput *= medium->transmittance(sampler, ray);
+             }
+         }
+         if (info.primitive == nullptr || info.primitive == endCap)
+@@ -125,11 +125,10 @@
+ }
+ 
+ Vec3f TraceBase::generalizedShadowRay(PathSampleGenerator &sampler, Ray &ray, const Medium *medium,
+-            const Primitive *endCap, bool startsOnSurface, bool endsOnSurface, int bounce) const
++            const Primitive *endCap, int bounce) const
+ {
+     float dummyA, dummyB;
+-    return generalizedShadowRayImpl<false>(sampler, ray, medium, endCap, bounce,
+-            startsOnSurface, endsOnSurface, dummyA, dummyB);
++    return generalizedShadowRayImpl<false>(sampler, ray, medium, endCap, bounce, false, false, dummyA, dummyB);
+ }
+ 
+ Vec3f TraceBase::generalizedShadowRayAndPdfs(PathSampleGenerator &sampler, Ray &ray, const Medium *medium,
+@@ -148,7 +147,6 @@
+                          IntersectionTemporary &data,
+                          IntersectionInfo &info,
+                          int bounce,
+-                         bool startsOnSurface,
+                          Ray &ray,
+                          Vec3f *transmittance)
+ {
+@@ -164,7 +162,7 @@
+     info.w = ray.dir();
+     light.intersectionInfo(data, info);
+ 
+-    Vec3f shadow = generalizedShadowRay(sampler, ray, medium, &light, startsOnSurface, true, bounce);
++    Vec3f shadow = generalizedShadowRay(sampler, ray, medium, &light, bounce);
+     if (transmittance)
+         *transmittance = shadow;
+     if (shadow == 0.0f)
+@@ -194,7 +192,7 @@
+     ray.setPrimaryRay(false);
+     ray.setFarT(lensSample.dist);
+ 
+-    Vec3f transmittance = generalizedShadowRay(sampler, ray, medium, nullptr, false, true, bounce);
++    Vec3f transmittance = generalizedShadowRay(sampler, ray, medium, nullptr, bounce);
+     if (transmittance == 0.0f)
+         return false;
+ 
+@@ -233,7 +231,7 @@
+     ray.setPrimaryRay(false);
+     ray.setFarT(sample.dist);
+ 
+-    Vec3f transmittance = generalizedShadowRay(*event.sampler, ray, medium, nullptr, true, true, bounce);
++    Vec3f transmittance = generalizedShadowRay(*event.sampler, ray, medium, nullptr, bounce);
+     if (transmittance == 0.0f)
+         return false;
+ 
+@@ -272,7 +270,7 @@
+ 
+     IntersectionTemporary data;
+     IntersectionInfo info;
+-    Vec3f e = attenuatedEmission(*event.sampler, light, medium, sample.dist, data, info, bounce, true, ray, transmittance);
++    Vec3f e = attenuatedEmission(*event.sampler, light, medium, sample.dist, data, info, bounce, ray, transmittance);
+     if (e == 0.0f)
+         return Vec3f(0.0f);
+ 
+@@ -308,7 +306,7 @@
+ 
+     IntersectionTemporary data;
+     IntersectionInfo info;
+-    Vec3f e = attenuatedEmission(*event.sampler, light, medium, -1.0f, data, info, bounce, true, ray, nullptr);
++    Vec3f e = attenuatedEmission(*event.sampler, light, medium, -1.0f, data, info, bounce, ray, nullptr);
+ 
+     if (e == Vec3f(0.0f))
+         return Vec3f(0.0f);
+@@ -340,7 +338,7 @@
+ 
+     IntersectionTemporary data;
+     IntersectionInfo info;
+-    Vec3f e = attenuatedEmission(sampler, light, medium, lightSample.dist, data, info, bounce, false, ray, nullptr);
++    Vec3f e = attenuatedEmission(sampler, light, medium, lightSample.dist, data, info, bounce, ray, nullptr);
+     if (e == 0.0f)
+         return Vec3f(0.0f);
+ 
+@@ -368,7 +366,7 @@
+ 
+     IntersectionTemporary data;
+     IntersectionInfo info;
+-    Vec3f e = attenuatedEmission(sampler, light, medium, -1.0f, data, info, bounce, false, ray, nullptr);
++    Vec3f e = attenuatedEmission(sampler, light, medium, -1.0f, data, info, bounce, ray, nullptr);
+ 
+     if (e == Vec3f(0.0f))
+         return Vec3f(0.0f);
+diff -uarN 2016_bitterli_nfor/src/core/integrators/TraceBase.hpp ../methods/2016_bitterli_nfor/src/core/integrators/TraceBase.hpp
+--- 2016_bitterli_nfor/src/core/integrators/TraceBase.hpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/integrators/TraceBase.hpp	2019-09-11 11:31:25.362895551 -0700
+@@ -64,7 +64,6 @@
+                              IntersectionTemporary &data,
+                              IntersectionInfo &info,
+                              int bounce,
+-                             bool startsOnSurface,
+                              Ray &ray,
+                              Vec3f *transmittance);
+ 
+@@ -149,8 +148,6 @@
+                                Ray &ray,
+                                const Medium *medium,
+                                const Primitive *endCap,
+-                               bool startsOnSurface,
+-                               bool endsOnSurface,
+                                int bounce) const;
+     Vec3f generalizedShadowRayAndPdfs(PathSampleGenerator &sampler,
+                                Ray &ray,
+diff -uarN 2016_bitterli_nfor/src/core/io/JsonObject.hpp ../methods/2016_bitterli_nfor/src/core/io/JsonObject.hpp
+--- 2016_bitterli_nfor/src/core/io/JsonObject.hpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/io/JsonObject.hpp	2019-09-11 11:31:25.362895551 -0700
+@@ -16,8 +16,6 @@
+     void add() {}
+ 
+ public:
+-    JsonObject(const JsonObject &o) = delete;
+-
+     template<typename... Ts>
+     JsonObject(Allocator &allocator, Ts &&... ts)
+     : JsonObject(rapidjson::Value(rapidjson::kObjectType), allocator, std::forward<Ts>(ts)...)
+diff -uarN 2016_bitterli_nfor/src/core/io/JsonPtr.cpp ../methods/2016_bitterli_nfor/src/core/io/JsonPtr.cpp
+--- 2016_bitterli_nfor/src/core/io/JsonPtr.cpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/io/JsonPtr.cpp	2019-09-11 11:31:25.362895551 -0700
+@@ -40,11 +40,6 @@
+     getJsonNumber(*_value, dst, *this);
+ }
+ 
+-void JsonPtr::get(uint8 &dst) const
+-{
+-    getJsonNumber(*_value, dst, *this);
+-}
+-
+ void JsonPtr::get(uint32 &dst) const
+ {
+     getJsonNumber(*_value, dst, *this);
+diff -uarN 2016_bitterli_nfor/src/core/io/JsonPtr.hpp ../methods/2016_bitterli_nfor/src/core/io/JsonPtr.hpp
+--- 2016_bitterli_nfor/src/core/io/JsonPtr.hpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/io/JsonPtr.hpp	2019-09-11 11:31:25.362895551 -0700
+@@ -39,7 +39,6 @@
+     void get(bool &dst) const;
+     void get(float &dst) const;
+     void get(double &dst) const;
+-    void get(uint8 &dst) const;
+     void get(uint32 &dst) const;
+     void get(int32 &dst) const;
+     void get(uint64 &dst) const;
+diff -uarN 2016_bitterli_nfor/src/core/io/ObjLoader.cpp ../methods/2016_bitterli_nfor/src/core/io/ObjLoader.cpp
+--- 2016_bitterli_nfor/src/core/io/ObjLoader.cpp	2019-09-11 15:47:11.252791686 -0700
++++ ../methods/2016_bitterli_nfor/src/core/io/ObjLoader.cpp	2019-09-11 11:31:25.362895551 -0700
+@@ -217,7 +217,7 @@
+             || hasPrefix(line, "o")
+             || hasPrefix(line, "s");
+ 
+-    if (meshBoundary && (!_tris.empty() || !_segments.empty()) && !_geometryOnly) {
++    if (meshBoundary && !_tris.empty() && !_geometryOnly) {
+         _meshes.emplace_back(finalizeMesh());
+         clearPerMeshData();
+     }
+@@ -326,7 +326,6 @@
+     _indices.clear();
+     _tris.clear();
+     _verts.clear();
+-    _segments.clear();
+ }
+ 
+ void ObjLoader::finalizeCurveData(std::vector<uint32> &curveEnds, std::vector<Vec4f> &nodeData)
+diff -uarN 2016_bitterli_nfor/src/core/io/Scene.cpp ../methods/2016_bitterli_nfor/src/core/io/Scene.cpp
+--- 2016_bitterli_nfor/src/core/io/Scene.cpp	2019-09-11 15:47:11.256791723 -0700
++++ ../methods/2016_bitterli_nfor/src/core/io/Scene.cpp	2019-09-11 11:31:25.362895551 -0700
+@@ -11,7 +11,6 @@
+ #include "integrators/IntegratorFactory.hpp"
+ 
+ #include "primitives/PrimitiveFactory.hpp"
+-#include "primitives/Primitive.hpp"
+ 
+ #include "textures/TextureFactory.hpp"
+ #include "textures/BitmapTexture.hpp"
+@@ -92,11 +91,6 @@
+     }
+ }
+ 
+-std::shared_ptr<Transmittance> Scene::fetchTransmittance(JsonPtr value) const
+-{
+-    return instantiate<Transmittance>(value, *this);
+-}
+-
+ std::shared_ptr<PhaseFunction> Scene::fetchPhase(JsonPtr value) const
+ {
+     return instantiate<PhaseFunction>(value, *this);
+@@ -112,11 +106,6 @@
+     return instantiate<Grid>(value, *this);
+ }
+ 
+-std::shared_ptr<Primitive> Scene::fetchPrimitive(JsonPtr value) const
+-{
+-    return instantiate<Primitive>(value, *this);
+-}
+-
+ std::shared_ptr<Bsdf> Scene::fetchBsdf(JsonPtr value) const
+ {
+     using namespace std::placeholders;
+@@ -375,11 +364,11 @@
+     return new TraceableScene(*_camera, *_integrator, _primitives, _bsdfs, _media, _rendererSettings, seed);
+ }
+ 
+-Scene *Scene::load(const Path &path, std::shared_ptr<TextureCache> cache, const Path *inputDirectory)
++Scene *Scene::load(const Path &path, std::shared_ptr<TextureCache> cache)
+ {
+     JsonDocument document(path);
+ 
+-    DirectoryChange context(inputDirectory ? *inputDirectory : path.parent());
++    DirectoryChange context(path.parent());
+     if (!cache)
+         cache = std::make_shared<TextureCache>();
+ 
+diff -uarN 2016_bitterli_nfor/src/core/io/Scene.hpp ../methods/2016_bitterli_nfor/src/core/io/Scene.hpp
+--- 2016_bitterli_nfor/src/core/io/Scene.hpp	2019-09-11 15:47:11.256791723 -0700
++++ ../methods/2016_bitterli_nfor/src/core/io/Scene.hpp	2019-09-11 11:31:25.362895551 -0700
+@@ -13,8 +13,6 @@
+ #include "ImageIO.hpp"
+ #include "Path.hpp"
+ 
+-#include "transmittances/Transmittance.hpp"
+-
+ #include "phasefunctions/PhaseFunction.hpp"
+ 
+ #include "integrators/Integrator.hpp"
+@@ -68,11 +66,9 @@
+     virtual void loadResources() override;
+     virtual void saveResources() override;
+ 
+-    std::shared_ptr<Transmittance> fetchTransmittance(JsonPtr value) const;
+     std::shared_ptr<PhaseFunction> fetchPhase(JsonPtr value) const;
+     std::shared_ptr<Medium> fetchMedium(JsonPtr value) const;
+     std::shared_ptr<Grid> fetchGrid(JsonPtr value) const;
+-    std::shared_ptr<Primitive> fetchPrimitive(JsonPtr value) const;
+     std::shared_ptr<Bsdf> fetchBsdf(JsonPtr value) const;
+     std::shared_ptr<Texture> fetchTexture(JsonPtr value, TexelConversion conversion) const;
+     PathPtr fetchResource(const std::string &path) const;
+@@ -164,7 +160,7 @@
+         return _resources;
+     }
+ 
+-    static Scene *load(const Path &path, std::shared_ptr<TextureCache> cache = nullptr, const Path *inputDirectory = nullptr);
++    static Scene *load(const Path &path, std::shared_ptr<TextureCache> cache = nullptr);
+     static void save(const Path &path, const Scene &scene);
+ };
+ 
+diff -uarN 2016_bitterli_nfor/src/core/math/Quaternion.hpp ../methods/2016_bitterli_nfor/src/core/math/Quaternion.hpp
+--- 2016_bitterli_nfor/src/core/math/Quaternion.hpp	2019-09-11 15:47:11.256791723 -0700
++++ ../methods/2016_bitterli_nfor/src/core/math/Quaternion.hpp	2019-09-11 11:31:25.366895588 -0700
+@@ -17,8 +17,6 @@
+ public:
+     Quaternion() = default;
+ 
+-    inline Quaternion(const Vec<Type, 4> &a) : Vec<Type, 4>(a) {}
+-
+     inline explicit Quaternion(const Type &a)
+     : Vec<Type, 4>(a)
+     {
+@@ -44,27 +42,6 @@
+         return Quaternion(_v[0], -_v[1], -_v[2], -_v[3]);
+     }
+ 
+-    inline Quaternion slerp(Quaternion o, float t) const
+-    {
+-        double d = (*this).dot(o);
+-        if (d < 0.0f) {
+-            o = -o;
+-            d = -d;
+-        }
+-        if (d > 0.9995)
+-            return lerp(*this, o, t).normalized();
+-
+-        float theta0 = std::acos(d);
+-        float theta = theta0*t;
+-        float sinTheta = std::sin(theta);
+-        float sinTheta0 = std::sin(theta0);
+-
+-        float  s0 = std::cos(theta) - d*sinTheta/sinTheta0;
+-        float  s1 = sinTheta/sinTheta0;
+-
+-        return (s0*(*this)) + (s1*o);
+-    }
+-
+     inline Quaternion operator*(const Quaternion &o)
+     {
+         return Quaternion(
+diff -uarN 2016_bitterli_nfor/src/core/math/TangentFrame.hpp ../methods/2016_bitterli_nfor/src/core/math/TangentFrame.hpp
+--- 2016_bitterli_nfor/src/core/math/TangentFrame.hpp	2019-09-11 15:47:11.256791723 -0700
++++ ../methods/2016_bitterli_nfor/src/core/math/TangentFrame.hpp	2019-09-11 11:31:25.366895588 -0700
+@@ -22,12 +22,12 @@
+     TangentFrame(const Vec3f &n)
+     : normal(n)
+     {
+-        // [Duff et al. 17] Building An Orthonormal Basis, Revisited. JCGT. 2017.
+-        float sign = copysignf(1.0f, normal.z());
+-        const float a = -1.0f/(sign + normal.z());
+-        const float b = normal.x()*normal.y()*a;
+-        tangent = Vec3f(1.0f + sign*normal.x()*normal.x()*a, sign*b, -sign*normal.x());
+-        bitangent = Vec3f(b, sign + normal.y()*normal.y()*a, -normal.y());
++        if (std::abs(normal.x()) > std::abs(normal.y()))
++            tangent = Vec3f(0.0f, 1.0f, 0.0f);
++        else
++            tangent = Vec3f(1.0f, 0.0f, 0.0f);
++        bitangent = normal.cross(tangent).normalized();
++        tangent = bitangent.cross(normal);
+     }
+ 
+     Vec3f toLocal(const Vec3f &p) const
+diff -uarN 2016_bitterli_nfor/src/core/media/AtmosphericMedium.cpp ../methods/2016_bitterli_nfor/src/core/media/AtmosphericMedium.cpp
+--- 2016_bitterli_nfor/src/core/media/AtmosphericMedium.cpp	2019-09-11 15:47:11.256791723 -0700
++++ ../methods/2016_bitterli_nfor/src/core/media/AtmosphericMedium.cpp	2019-09-11 11:31:25.366895588 -0700
+@@ -110,10 +110,10 @@
+         return (SQRT_PI*0.5f/s)*std::exp((-h*h + _radius*_radius)*s*s)*Erf::erfDifference(s*t0, s*t1);
+ }
+ 
+-inline float AtmosphericMedium::inverseOpticalDepth(double h, double t0, double tau) const
++inline float AtmosphericMedium::inverseOpticalDepth(double h, double t0, double sigmaT, double xi) const
+ {
+     double s = _effectiveFalloffScale;
+-    double inner = std::erf(s*t0) + 2.0*double(INV_SQRT_PI)*std::exp(s*s*(h - _radius)*(h + _radius))*s*tau;
++    double inner = std::erf(s*t0) - 2.0*double(INV_SQRT_PI)*std::exp(s*s*(h - _radius)*(h + _radius))*s*std::log(xi)/sigmaT;
+ 
+     if (inner >= 1.0)
+         return Ray::infinity();
+@@ -124,8 +124,6 @@
+ bool AtmosphericMedium::sampleDistance(PathSampleGenerator &sampler, const Ray &ray,
+         MediumState &state, MediumSample &sample) const
+ {
+-    sample.emission = Vec3f(0.0f);
+-
+     if (state.bounce > _maxBounce)
+         return false;
+ 
+@@ -136,26 +134,24 @@
+     float maxT = ray.farT() + t0;
+     if (_absorptionOnly) {
+         sample.t = ray.farT();
+-        Vec3f tau = densityIntegral(h, t0, maxT)*_sigmaT;
+-        sample.weight = _transmittance->eval(tau, state.firstScatter, true);
++        sample.weight = std::exp(-_sigmaT*densityIntegral(h, t0, maxT));
+         sample.pdf = 1.0f;
+         sample.exited = true;
+     } else {
+         int component = sampler.nextDiscrete(3);
+         float sigmaTc = _sigmaT[component];
+-        float tauC = _transmittance->sample(sampler, state.firstScatter)/sigmaTc;
++        float xi = 1.0f - sampler.next1D();
+ 
+-        float t = inverseOpticalDepth(h, t0, tauC);
++        float t = inverseOpticalDepth(h, t0, sigmaTc, xi);
+         sample.t = min(t, maxT);
+-        Vec3f tau = densityIntegral(h, t0, sample.t)*_sigmaT;
+-        sample.weight = _transmittance->eval(tau, state.firstScatter, sample.exited);
++        sample.weight = std::exp(-_sigmaT*densityIntegral(h, t0, sample.t));
+         sample.exited = (t >= maxT);
+         if (sample.exited) {
+-            sample.pdf = _transmittance->surfaceProbability(tau, state.firstScatter).avg();
++            sample.pdf = sample.weight.avg();
+         } else {
+             float rho = density(h, sample.t);
+-            sample.pdf = (rho*_sigmaT*_transmittance->mediumPdf(tau, state.firstScatter)).avg();
+-            sample.weight *= rho*_sigmaS*_transmittance->sigmaBar();
++            sample.pdf = (rho*_sigmaT*sample.weight).avg();
++            sample.weight *= rho*_sigmaS;
+         }
+         sample.weight /= sample.pdf;
+         sample.t -= t0;
+@@ -168,19 +164,17 @@
+     return true;
+ }
+ 
+-Vec3f AtmosphericMedium::transmittance(PathSampleGenerator &/*sampler*/, const Ray &ray, bool startOnSurface,
+-        bool endOnSurface) const
++Vec3f AtmosphericMedium::transmittance(PathSampleGenerator &/*sampler*/, const Ray &ray) const
+ {
+     Vec3f p = (ray.pos() - _center);
+     float t0 = p.dot(ray.dir());
+     float t1 = ray.farT() + t0;
+     float  h = (p - t0*ray.dir()).length();
+ 
+-    Vec3f tau = _sigmaT*densityIntegral(h, t0, t1);
+-    return _transmittance->eval(tau, startOnSurface, endOnSurface);
++    return std::exp(-_sigmaT*densityIntegral(h, t0, t1));
+ }
+ 
+-float AtmosphericMedium::pdf(PathSampleGenerator &/*sampler*/, const Ray &ray, bool startOnSurface, bool endOnSurface) const
++float AtmosphericMedium::pdf(PathSampleGenerator &/*sampler*/, const Ray &ray, bool onSurface) const
+ {
+     if (_absorptionOnly) {
+         return 1.0f;
+@@ -190,13 +184,33 @@
+         float t1 = ray.farT() + t0;
+         float  h = (p - t0*ray.dir()).length();
+ 
++        Vec3f transmittance = std::exp(-_sigmaT*densityIntegral(h, t0, t1));
++        if (onSurface) {
++            return transmittance.avg();
++        } else {
++            return (density(h, t0)*_sigmaT*transmittance).avg();
++        }
++    }
++}
+ 
+-        Vec3f tau = _sigmaT*densityIntegral(h, t0, t1);
+-        if (endOnSurface)
+-            return _transmittance->surfaceProbability(tau, startOnSurface).avg();
+-        else
+-            return (density(h, t0)*_sigmaT*_transmittance->mediumPdf(tau, startOnSurface)).avg();
++Vec3f AtmosphericMedium::transmittanceAndPdfs(PathSampleGenerator &/*sampler*/, const Ray &ray, bool startOnSurface,
++        bool endOnSurface, float &pdfForward, float &pdfBackward) const
++{
++    Vec3f p = (ray.pos() - _center);
++    float t0 = p.dot(ray.dir());
++    float t1 = ray.farT() + t0;
++    float  h = (p - t0*ray.dir()).length();
++
++    Vec3f transmittance = std::exp(-_sigmaT*densityIntegral(h, t0, t1));
++
++    if (_absorptionOnly) {
++        pdfForward = pdfBackward = 1.0f;
++    } else {
++        pdfForward  =   endOnSurface ? transmittance.avg() : (density(h, t1)*_sigmaT*transmittance).avg();
++        pdfBackward = startOnSurface ? transmittance.avg() : (density(h, t0)*_sigmaT*transmittance).avg();
+     }
++
++    return transmittance;
+ }
+ 
+ }
+diff -uarN 2016_bitterli_nfor/src/core/media/AtmosphericMedium.hpp ../methods/2016_bitterli_nfor/src/core/media/AtmosphericMedium.hpp
+--- 2016_bitterli_nfor/src/core/media/AtmosphericMedium.hpp	2019-09-11 15:47:11.256791723 -0700
++++ ../methods/2016_bitterli_nfor/src/core/media/AtmosphericMedium.hpp	2019-09-11 11:31:25.366895588 -0700
+@@ -28,7 +28,7 @@
+     inline float density(Vec3f p) const;
+     inline float density(float h, float t0) const;
+     inline float densityIntegral(float h, float t0, float t1) const;
+-    inline float inverseOpticalDepth(double h, double t0, double tau) const;
++    inline float inverseOpticalDepth(double h, double t0, double sigmaT, double xi) const;
+ 
+ public:
+     AtmosphericMedium();
+@@ -46,9 +46,10 @@
+ 
+     virtual bool sampleDistance(PathSampleGenerator &sampler, const Ray &ray,
+             MediumState &state, MediumSample &sample) const override;
+-    virtual Vec3f transmittance(PathSampleGenerator &sampler, const Ray &ray, bool startOnSurface,
+-            bool endOnSurface) const override;
+-    virtual float pdf(PathSampleGenerator &sampler, const Ray &ray, bool startOnSurface, bool endOnSurface) const override;
++    virtual Vec3f transmittance(PathSampleGenerator &sampler, const Ray &ray) const override;
++    virtual float pdf(PathSampleGenerator &sampler, const Ray &ray, bool onSurface) const override;
++    virtual Vec3f transmittanceAndPdfs(PathSampleGenerator &sampler, const Ray &ray, bool startOnSurface,
++            bool endOnSurface, float &pdfForward, float &pdfBackward) const override;
+ };
+ 
+ }
+diff -uarN 2016_bitterli_nfor/src/core/media/ExponentialMedium.cpp ../methods/2016_bitterli_nfor/src/core/media/ExponentialMedium.cpp
+--- 2016_bitterli_nfor/src/core/media/ExponentialMedium.cpp	2019-09-11 15:47:11.256791723 -0700
++++ ../methods/2016_bitterli_nfor/src/core/media/ExponentialMedium.cpp	2019-09-11 11:31:25.366895588 -0700
+@@ -92,21 +92,20 @@
+         return (std::exp(-x) - std::exp(-dx*tMax - x))/dx;
+ }
+ 
+-inline float ExponentialMedium::inverseOpticalDepth(float x, float dx, float tau) const
++inline float ExponentialMedium::inverseOpticalDepth(float x, float dx, float sigmaT, float logXi) const
+ {
+     if (dx == 0.0f) {
+-        return tau/std::exp(-x);
++        float effectiveSigmaTc = sigmaT*std::exp(-x);
++        return -logXi/effectiveSigmaTc;
+     } else {
+-        float denom = 1.0f - dx*std::exp(x)*tau;
+-        return denom <= 0.0f ? Ray::infinity() : -std::log(denom)/dx;
++        float denom = sigmaT + dx*std::exp(x)*logXi;
++        return denom <= 0.0f ? Ray::infinity() : std::log(sigmaT/denom)/dx;
+     }
+ }
+ 
+ bool ExponentialMedium::sampleDistance(PathSampleGenerator &sampler, const Ray &ray,
+         MediumState &state, MediumSample &sample) const
+ {
+-    sample.emission = Vec3f(0.0f);
+-
+     if (state.bounce > _maxBounce)
+         return false;
+ 
+@@ -118,26 +117,25 @@
+         if (maxT == Ray::infinity() && dx <= 0.0f)
+             return false;
+         sample.t = maxT;
+-        Vec3f tau = densityIntegral(x, dx, ray.farT())*_sigmaT;
+-        sample.weight = _transmittance->eval(tau, state.firstScatter, true);
++        sample.weight = std::exp(-_sigmaT*densityIntegral(x, dx, ray.farT()));
+         sample.pdf = 1.0f;
+         sample.exited = true;
+     } else {
+         int component = sampler.nextDiscrete(3);
+         float sigmaTc = _sigmaT[component];
+-        float tauC = _transmittance->sample(sampler, state.firstScatter)/sigmaTc;
++        float xi = 1.0f - sampler.next1D();
++        float logXi = std::log(xi);
+ 
+-        float t = inverseOpticalDepth(x, dx, tauC);
++        float t = inverseOpticalDepth(x, dx, sigmaTc, logXi);
+         sample.t = min(t, maxT);
+-        Vec3f tau = densityIntegral(x, dx, sample.t)*_sigmaT;
+-        sample.weight = _transmittance->eval(tau, state.firstScatter, sample.exited);
++        sample.weight = std::exp(-_sigmaT*densityIntegral(x, dx, sample.t));
+         sample.exited = (t >= maxT);
+         if (sample.exited) {
+-            sample.pdf = _transmittance->surfaceProbability(tau, state.firstScatter).avg();
++            sample.pdf = sample.weight.avg();
+         } else {
+             float rho = density(x, dx, sample.t);
+-            sample.pdf = (rho*_sigmaT*_transmittance->mediumPdf(tau, state.firstScatter)).avg();
+-            sample.weight *= rho*_sigmaS*_transmittance->sigmaBar();
++            sample.pdf = (rho*_sigmaT*sample.weight).avg();
++            sample.weight *= rho*_sigmaS;
+         }
+         sample.weight /= sample.pdf;
+ 
+@@ -148,21 +146,18 @@
+ 
+     return true;
+ }
+-Vec3f ExponentialMedium::transmittance(PathSampleGenerator &/*sampler*/, const Ray &ray, bool startOnSurface,
+-        bool endOnSurface) const
++Vec3f ExponentialMedium::transmittance(PathSampleGenerator &/*sampler*/, const Ray &ray) const
+ {
+     float  x = _falloffScale*(ray.pos() - _unitPoint).dot(_unitFalloffDirection);
+     float dx = _falloffScale*ray.dir().dot(_unitFalloffDirection);
+ 
+-    if (ray.farT() == Ray::infinity() && dx <= 0.0f) {
++    if (ray.farT() == Ray::infinity() && dx <= 0.0f)
+         return Vec3f(0.0f);
+-    } else {
+-        Vec3f tau = _sigmaT*densityIntegral(x, dx, ray.farT());
+-        return _transmittance->eval(tau, startOnSurface, endOnSurface);
+-    }
++    else
++        return std::exp(-_sigmaT*densityIntegral(x, dx, ray.farT()));
+ }
+ 
+-float ExponentialMedium::pdf(PathSampleGenerator &/*sampler*/, const Ray &ray, bool startOnSurface, bool endOnSurface) const
++float ExponentialMedium::pdf(PathSampleGenerator &/*sampler*/, const Ray &ray, bool onSurface) const
+ {
+     if (_absorptionOnly) {
+         return 1.0f;
+@@ -170,12 +165,36 @@
+         float  x = _falloffScale*(ray.pos() - _unitPoint).dot(_unitFalloffDirection);
+         float dx = _falloffScale*ray.dir().dot(_unitFalloffDirection);
+ 
+-        Vec3f tau = _sigmaT*densityIntegral(x, dx, ray.farT());
+-        if (endOnSurface)
+-            return _transmittance->surfaceProbability(tau, startOnSurface).avg();
+-        else
+-            return (density(x, dx, ray.farT())*_sigmaT*_transmittance->mediumPdf(tau, startOnSurface)).avg();
++        Vec3f transmittance = std::exp(-_sigmaT*densityIntegral(x, dx, ray.farT()));
++        if (onSurface) {
++            return transmittance.avg();
++        } else {
++            return (density(x, dx, ray.farT())*_sigmaT*transmittance).avg();
++        }
+     }
+ }
+ 
++Vec3f ExponentialMedium::transmittanceAndPdfs(PathSampleGenerator &/*sampler*/, const Ray &ray, bool startOnSurface,
++        bool endOnSurface, float &pdfForward, float &pdfBackward) const
++{
++    float  x = _falloffScale*(ray.pos() - _unitPoint).dot(_unitFalloffDirection);
++    float dx = _falloffScale*ray.dir().dot(_unitFalloffDirection);
++
++    if (ray.farT() == Ray::infinity() && dx <= 0.0f) {
++        pdfForward = pdfBackward = 0.0f;
++        return Vec3f(0.0f);
++    }
++
++    Vec3f transmittance = std::exp(-_sigmaT*densityIntegral(x, dx, ray.farT()));
++
++    if (_absorptionOnly) {
++        pdfForward = pdfBackward = 1.0f;
++    } else {
++        pdfForward  =   endOnSurface ? transmittance.avg() : (density(x, dx, ray.farT())*_sigmaT*transmittance).avg();
++        pdfBackward = startOnSurface ? transmittance.avg() : (density(x, dx,       0.0f)*_sigmaT*transmittance).avg();
++    }
++
++    return transmittance;
++}
++
+ }
+diff -uarN 2016_bitterli_nfor/src/core/media/ExponentialMedium.hpp ../methods/2016_bitterli_nfor/src/core/media/ExponentialMedium.hpp
+--- 2016_bitterli_nfor/src/core/media/ExponentialMedium.hpp	2019-09-11 15:47:11.256791723 -0700
++++ ../methods/2016_bitterli_nfor/src/core/media/ExponentialMedium.hpp	2019-09-11 11:31:25.366895588 -0700
+@@ -21,7 +21,7 @@
+     inline float density(Vec3f p) const;
+     inline float density(float x, float dx, float t) const;
+     inline float densityIntegral(float x, float dx, float tMax) const;
+-    inline float inverseOpticalDepth(float x, float dx, float tau) const;
++    inline float inverseOpticalDepth(float x, float dx, float sigmaT, float logXi) const;
+ 
+ public:
+     ExponentialMedium();
+@@ -39,9 +39,10 @@
+ 
+     virtual bool sampleDistance(PathSampleGenerator &sampler, const Ray &ray,
+             MediumState &state, MediumSample &sample) const override;
+-    virtual Vec3f transmittance(PathSampleGenerator &sampler, const Ray &ray, bool startOnSurface,
+-            bool endOnSurface) const override;
+-    virtual float pdf(PathSampleGenerator &sampler, const Ray &ray, bool startOnSurface, bool endOnSurface) const override;
++    virtual Vec3f transmittance(PathSampleGenerator &sampler, const Ray &ray) const override;
++    virtual float pdf(PathSampleGenerator &sampler, const Ray &ray, bool onSurface) const override;
++    virtual Vec3f transmittanceAndPdfs(PathSampleGenerator &sampler, const Ray &ray, bool startOnSurface,
++            bool endOnSurface, float &pdfForward, float &pdfBackward) const override;
+ };
+ 
+ }
+diff -uarN 2016_bitterli_nfor/src/core/media/HomogeneousMedium.cpp ../methods/2016_bitterli_nfor/src/core/media/HomogeneousMedium.cpp
+--- 2016_bitterli_nfor/src/core/media/HomogeneousMedium.cpp	2019-09-11 15:47:11.256791723 -0700
++++ ../methods/2016_bitterli_nfor/src/core/media/HomogeneousMedium.cpp	2019-09-11 11:31:25.366895588 -0700
+@@ -3,6 +3,7 @@
+ #include "sampling/PathSampleGenerator.hpp"
+ 
+ #include "math/TangentFrame.hpp"
++#include "math/FastMath.hpp"
+ #include "math/Ray.hpp"
+ 
+ #include "io/JsonObject.hpp"
+@@ -65,8 +66,6 @@
+ bool HomogeneousMedium::sampleDistance(PathSampleGenerator &sampler, const Ray &ray,
+         MediumState &state, MediumSample &sample) const
+ {
+-    sample.emission = Vec3f(0.0f);
+-
+     if (state.bounce > _maxBounce)
+         return false;
+ 
+@@ -75,29 +74,27 @@
+         if (maxT == Ray::infinity())
+             return false;
+         sample.t = maxT;
+-        sample.weight = _transmittance->eval(sample.t*_sigmaT, state.firstScatter, true);
++        sample.weight = FastMath::exp(-_sigmaT*maxT);
+         sample.pdf = 1.0f;
+         sample.exited = true;
+     } else {
+         int component = sampler.nextDiscrete(3);
+         float sigmaTc = _sigmaT[component];
+ 
+-        float t = _transmittance->sample(sampler, state.firstScatter)/sigmaTc;
++        float t = -std::log(1.0f - sampler.next1D())/sigmaTc;
+         sample.t = min(t, maxT);
+         sample.continuedT = t;
++        sample.weight = FastMath::exp(-sample.t*_sigmaT);
++        sample.continuedWeight = FastMath::exp(-sample.continuedT*_sigmaT);
+         sample.exited = (t >= maxT);
+-        Vec3f tau = sample.t*_sigmaT;
+-        Vec3f continuedTau = sample.continuedT*_sigmaT;
+-        sample.weight = _transmittance->eval(tau, state.firstScatter, sample.exited);
+-        sample.continuedWeight = _transmittance->eval(continuedTau, state.firstScatter, sample.exited);
+         if (sample.exited) {
+-            sample.pdf = _transmittance->surfaceProbability(tau, state.firstScatter).avg();
++            sample.pdf = sample.weight.avg();
+         } else {
+-            sample.pdf = (_sigmaT*_transmittance->mediumPdf(tau, state.firstScatter)).avg();
+-            sample.weight *= _sigmaS*_transmittance->sigmaBar();
++            sample.pdf = (_sigmaT*sample.weight).avg();
++            sample.weight *= _sigmaS;
+         }
+         sample.weight /= sample.pdf;
+-        sample.continuedWeight = _sigmaS*_transmittance->sigmaBar()*sample.continuedWeight/(_sigmaT*_transmittance->mediumPdf(continuedTau, state.firstScatter)).avg();
++        sample.continuedWeight = _sigmaS*sample.continuedWeight/(_sigmaT*sample.continuedWeight).avg();
+ 
+         state.advance();
+     }
+@@ -107,26 +104,87 @@
+     return true;
+ }
+ 
+-Vec3f HomogeneousMedium::transmittance(PathSampleGenerator &/*sampler*/, const Ray &ray, bool startOnSurface,
+-        bool endOnSurface) const
++bool HomogeneousMedium::invertDistance(WritablePathSampleGenerator &sampler, const Ray &ray, bool onSurface) const
++{
++    float maxT = ray.farT();
++    if (_absorptionOnly) {
++        if (maxT == Ray::infinity())
++            return false;
++        return true;
++    } else {
++        Vec3f Tr = std::exp(-_sigmaT*maxT);
++        Vec3f pdfs = onSurface ? Tr : _sigmaT*Tr;
++        Vec3f cdf(pdfs.x(), pdfs.x() + pdfs.y(), pdfs.sum());
++
++        float target = sampler.untracked1D()*cdf.z();
++        int component = target < cdf.x() ? 0 : (target < cdf.y() ? 1 : 2);
++        float Trc = Tr[component];
++
++        float xi = 1.0f - Trc;
++        if (onSurface)
++            xi -= (1.0f - Trc)*sampler.next1D();
++
++        sampler.putDiscrete(3, component);
++        sampler.put1D(xi);
++    }
++    return true;
++}
++
++Vec3f HomogeneousMedium::transmittance(PathSampleGenerator &/*sampler*/, const Ray &ray) const
+ {
+     if (ray.farT() == Ray::infinity())
+         return Vec3f(0.0f);
+-    else
+-        return _transmittance->eval(_sigmaT*ray.farT(), startOnSurface, endOnSurface);
++    else {
++        return FastMath::exp(-_sigmaT*ray.farT());
++    }
+ }
+ 
+-float HomogeneousMedium::pdf(PathSampleGenerator &/*sampler*/, const Ray &ray, bool startOnSurface, bool endOnSurface) const
++float HomogeneousMedium::pdf(PathSampleGenerator &/*sampler*/, const Ray &ray, bool onSurface) const
+ {
+     if (_absorptionOnly) {
+         return 1.0f;
+     } else {
+-        Vec3f tau = ray.farT()*_sigmaT;
+-        if (endOnSurface)
+-            return _transmittance->surfaceProbability(tau, startOnSurface).avg();
++        if (onSurface)
++            return FastMath::exp(-ray.farT()*_sigmaT).avg();
+         else
+-            return (_sigmaT*_transmittance->mediumPdf(tau, startOnSurface)).avg();
++            return (_sigmaT*FastMath::exp(-ray.farT()*_sigmaT)).avg();
+     }
+ }
+ 
++Vec3f HomogeneousMedium::transmittanceAndPdfs(PathSampleGenerator &/*sampler*/, const Ray &ray, bool startOnSurface,
++        bool endOnSurface, float &pdfForward, float &pdfBackward) const
++{
++    if (ray.farT() == Ray::infinity()) {
++        pdfForward = pdfBackward = 0.0f;
++        return Vec3f(0.0f);
++    } else if (_absorptionOnly) {
++        pdfForward = pdfBackward = 1.0f;
++        return FastMath::exp(-_sigmaT*ray.farT());
++    } else {
++        Vec3f weight = FastMath::exp(-_sigmaT*ray.farT());
++        pdfForward  =   endOnSurface ? weight.avg() : (_sigmaT*weight).avg();
++        pdfBackward = startOnSurface ? weight.avg() : (_sigmaT*weight).avg();
++        return weight;
++    }
++}
++
++bool HomogeneousMedium::invert(WritablePathSampleGenerator &sampler, const Ray &ray, bool onSurface) const
++{
++    if (_absorptionOnly)
++        return true;
++
++    Vec3f transmittance = std::exp(-ray.farT()*_sigmaT);
++    Vec3f pdfs = _sigmaT*transmittance;
++    float target = sampler.untracked1D()*pdfs.sum();
++    int component = (target < pdfs.x() ? 0 : (target < pdfs.x() + pdfs.y() ? 1 : 2));
++
++    float xi = 1.0f - transmittance[component];
++    if (onSurface)
++        xi += (1.0f - xi)*sampler.untracked1D();
++    sampler.putDiscrete(3, component);
++    sampler.put1D(xi);
++
++    return true;
++}
++
+ }
+diff -uarN 2016_bitterli_nfor/src/core/media/HomogeneousMedium.hpp ../methods/2016_bitterli_nfor/src/core/media/HomogeneousMedium.hpp
+--- 2016_bitterli_nfor/src/core/media/HomogeneousMedium.hpp	2019-09-11 15:47:11.256791723 -0700
++++ ../methods/2016_bitterli_nfor/src/core/media/HomogeneousMedium.hpp	2019-09-11 11:31:25.366895588 -0700
+@@ -30,8 +30,12 @@
+ 
+     virtual bool sampleDistance(PathSampleGenerator &sampler, const Ray &ray,
+             MediumState &state, MediumSample &sample) const override;
+-    virtual Vec3f transmittance(PathSampleGenerator &sampler, const Ray &ray, bool startOnSurface, bool endOnSurface) const override;
+-    virtual float pdf(PathSampleGenerator &sampler, const Ray &ray, bool startOnSurface, bool endOnSurface) const override;
++    virtual bool invertDistance(WritablePathSampleGenerator &sampler, const Ray &ray, bool onSurface) const;
++    virtual Vec3f transmittance(PathSampleGenerator &sampler, const Ray &ray) const override;
++    virtual float pdf(PathSampleGenerator &sampler, const Ray &ray, bool onSurface) const override;
++    virtual Vec3f transmittanceAndPdfs(PathSampleGenerator &sampler, const Ray &ray, bool startOnSurface,
++            bool endOnSurface, float &pdfForward, float &pdfBackward) const override;
++    virtual bool invert(WritablePathSampleGenerator &sampler, const Ray &ray, bool onSurface) const;
+ 
+     Vec3f sigmaA() const { return _sigmaA; }
+     Vec3f sigmaS() const { return _sigmaS; }
+diff -uarN 2016_bitterli_nfor/src/core/media/Medium.cpp ../methods/2016_bitterli_nfor/src/core/media/Medium.cpp
+--- 2016_bitterli_nfor/src/core/media/Medium.cpp	2019-09-11 15:47:11.256791723 -0700
++++ ../methods/2016_bitterli_nfor/src/core/media/Medium.cpp	2019-09-11 11:31:25.366895588 -0700
+@@ -1,7 +1,5 @@
+ #include "Medium.hpp"
+ 
+-#include "transmittances/ExponentialTransmittance.hpp"
+-
+ #include "phasefunctions/IsotropicPhaseFunction.hpp"
+ 
+ #include "io/JsonObject.hpp"
+@@ -10,8 +8,7 @@
+ namespace Tungsten {
+ 
+ Medium::Medium()
+-: _transmittance(std::make_shared<ExponentialTransmittance>()),
+-  _phaseFunction(std::make_shared<IsotropicPhaseFunction>()),
++: _phaseFunction(std::make_shared<IsotropicPhaseFunction>()),
+   _maxBounce(1024)
+ {
+ }
+@@ -22,8 +19,6 @@
+ 
+     if (auto phase = value["phase_function"])
+         _phaseFunction = scene.fetchPhase(phase);
+-    if (auto trans = value["transmittance"])
+-        _transmittance = scene.fetchTransmittance(trans);
+ 
+     value.getField("max_bounces", _maxBounce);
+ }
+@@ -32,7 +27,6 @@
+ {
+     return JsonObject{JsonSerializable::toJson(allocator), allocator,
+         "phase_function", *_phaseFunction,
+-        "transmittance", *_transmittance,
+         "max_bounces", _maxBounce
+     };
+ }
+@@ -45,9 +39,9 @@
+ Vec3f Medium::transmittanceAndPdfs(PathSampleGenerator &sampler, const Ray &ray, bool startOnSurface,
+         bool endOnSurface, float &pdfForward, float &pdfBackward) const
+ {
+-    pdfForward  = pdf(sampler, ray, startOnSurface, endOnSurface);
+-    pdfBackward = pdf(sampler, ray.scatter(ray.hitpoint(), -ray.dir(), 0.0f, ray.farT()), endOnSurface, startOnSurface);
+-    return transmittance(sampler, ray, startOnSurface, endOnSurface);
++    pdfForward = pdf(sampler, ray, endOnSurface);
++    pdfBackward = pdf(sampler, ray.scatter(ray.hitpoint(), -ray.dir(), 0.0f, ray.farT()), startOnSurface);
++    return transmittance(sampler, ray);
+ }
+ 
+ const PhaseFunction *Medium::phaseFunction(const Vec3f &/*p*/) const
+@@ -55,9 +49,4 @@
+     return _phaseFunction.get();
+ }
+ 
+-bool Medium::isDirac() const
+-{
+-    return _transmittance->isDirac();
+-}
+-
+ }
+diff -uarN 2016_bitterli_nfor/src/core/media/Medium.hpp ../methods/2016_bitterli_nfor/src/core/media/Medium.hpp
+--- 2016_bitterli_nfor/src/core/media/Medium.hpp	2019-09-11 15:47:11.256791723 -0700
++++ ../methods/2016_bitterli_nfor/src/core/media/Medium.hpp	2019-09-11 11:31:25.366895588 -0700
+@@ -1,8 +1,6 @@
+ #ifndef MEDIUM_HPP_
+ #define MEDIUM_HPP_
+ 
+-#include "transmittances/Transmittance.hpp"
+-
+ #include "phasefunctions/PhaseFunction.hpp"
+ 
+ #include "samplerecords/MediumSample.hpp"
+@@ -22,7 +20,6 @@
+ class Medium : public JsonSerializable
+ {
+ protected:
+-    std::shared_ptr<Transmittance> _transmittance;
+     std::shared_ptr<PhaseFunction> _phaseFunction;
+     int _maxBounce;
+ 
+@@ -63,14 +60,11 @@
+     virtual bool sampleDistance(PathSampleGenerator &sampler, const Ray &ray,
+             MediumState &state, MediumSample &sample) const = 0;
+     virtual bool invertDistance(WritablePathSampleGenerator &sampler, const Ray &ray, bool onSurface) const;
+-    virtual Vec3f transmittance(PathSampleGenerator &sampler, const Ray &ray, bool startOnSurface,
+-            bool endOnSurface) const = 0;
+-    virtual float pdf(PathSampleGenerator &sampler, const Ray &ray, bool startOnSurface, bool endOnSurface) const = 0;
++    virtual Vec3f transmittance(PathSampleGenerator &sampler, const Ray &ray) const = 0;
++    virtual float pdf(PathSampleGenerator &sampler, const Ray &ray, bool onSurface) const = 0;
+     virtual Vec3f transmittanceAndPdfs(PathSampleGenerator &sampler, const Ray &ray, bool startOnSurface,
+             bool endOnSurface, float &pdfForward, float &pdfBackward) const;
+     virtual const PhaseFunction *phaseFunction(const Vec3f &p) const;
+-
+-    bool isDirac() const;
+ };
+ 
+ }
+diff -uarN 2016_bitterli_nfor/src/core/media/VoxelMedium.cpp ../methods/2016_bitterli_nfor/src/core/media/VoxelMedium.cpp
+--- 2016_bitterli_nfor/src/core/media/VoxelMedium.cpp	2019-09-11 15:47:11.256791723 -0700
++++ ../methods/2016_bitterli_nfor/src/core/media/VoxelMedium.cpp	2019-09-11 11:31:25.366895588 -0700
+@@ -51,6 +51,11 @@
+ 
+     _worldToGrid = _grid->invNaturalTransform();
+     _gridBounds = _grid->bounds();
++
++    std::cout << _worldToGrid << std::endl;
++    std::cout << _gridBounds << std::endl;
++    std::cout << Box3f(_grid->naturalTransform()*_gridBounds.min(),
++                       _grid->naturalTransform()*_gridBounds.max()) << std::endl;
+ }
+ 
+ static inline bool bboxIntersection(const Box3f &box, const Vec3f &o, const Vec3f &d,
+@@ -97,8 +102,6 @@
+ bool VoxelMedium::sampleDistance(PathSampleGenerator &sampler, const Ray &ray,
+         MediumState &state, MediumSample &sample) const
+ {
+-    sample.emission = Vec3f(0.0f);
+-
+     if (state.bounce > _maxBounce)
+         return false;
+ 
+@@ -118,29 +121,26 @@
+ 
+     if (_absorptionOnly) {
+         sample.t = maxT;
+-        Vec3f tau = _grid->opticalDepth(sampler, p, w, t0, t1)*(_sigmaT/wPrime);
+-        sample.weight = _transmittance->eval(tau, state.firstScatter, true);
++        sample.weight = _grid->transmittance(sampler, p, w, t0, t1, _sigmaT/wPrime);
+         sample.pdf = 1.0f;
+         sample.exited = true;
+     } else {
+         int component = sampler.nextDiscrete(3);
+         float sigmaTc = _sigmaT[component];
+-        float tauC = _transmittance->sample(sampler, state.firstScatter)/(sigmaTc/wPrime);
++        float xi = 1.0f - sampler.next1D();
++        float logXi = -std::log(xi);
+ 
+-        Vec2f tAndDensity = _grid->inverseOpticalDepth(sampler, p, w, t0, t1, tauC);
++        Vec2f tAndDensity = _grid->inverseOpticalDepth(sampler, p, w, t0, t1, sigmaTc/wPrime, logXi);
+         sample.t = tAndDensity.x();
+         sample.exited = (sample.t >= t1);
+-        if (sample.exited)
+-            tauC = tAndDensity.y();
+-        Vec3f tau = tauC*(_sigmaT/wPrime);
+-        sample.weight = _transmittance->eval(tau, state.firstScatter, sample.exited);
++        float opticalDepth = sample.exited ? tAndDensity.y()/sigmaTc : logXi/sigmaTc;
++        sample.weight = std::exp(-_sigmaT*opticalDepth);
+         if (sample.exited) {
+-            sample.pdf = _transmittance->surfaceProbability(tau, state.firstScatter).avg();
++            sample.pdf = sample.weight.avg();
+         } else {
+             float rho = tAndDensity.y();
+-            sample.pdf = (rho*_sigmaT*_transmittance->mediumPdf(tau, state.firstScatter)).avg();
+-            sample.emission = _grid->emission(p + w*sample.t)*sample.weight/sample.pdf;
+-            sample.weight *= rho*_sigmaS*_transmittance->sigmaBar();
++            sample.pdf = (rho*_sigmaT*sample.weight).avg();
++            sample.weight *= rho*_sigmaS;
+         }
+         sample.weight /= sample.pdf;
+         sample.t /= wPrime;
+@@ -153,8 +153,7 @@
+     return true;
+ }
+ 
+-Vec3f VoxelMedium::transmittance(PathSampleGenerator &sampler, const Ray &ray, bool startOnSurface,
+-        bool endOnSurface) const
++Vec3f VoxelMedium::transmittance(PathSampleGenerator &sampler, const Ray &ray) const
+ {
+     Vec3f p = _worldToGrid*ray.pos();
+     Vec3f w = _worldToGrid.transformVector(ray.dir());
+@@ -164,11 +163,10 @@
+     if (!bboxIntersection(_gridBounds, p, w, t0, t1))
+         return Vec3f(1.0f);
+ 
+-    Vec3f tau = _grid->opticalDepth(sampler, p, w, t0, t1)*(_sigmaT/wPrime);
+-    return _transmittance->eval(tau, startOnSurface, endOnSurface);
++    return _grid->transmittance(sampler, p, w, t0, t1, _sigmaT/wPrime);
+ }
+ 
+-float VoxelMedium::pdf(PathSampleGenerator &sampler, const Ray &ray, bool startOnSurface, bool endOnSurface) const
++float VoxelMedium::pdf(PathSampleGenerator &sampler, const Ray &ray, bool onSurface) const
+ {
+     if (_absorptionOnly) {
+         return 1.0f;
+@@ -181,12 +179,38 @@
+         if (!bboxIntersection(_gridBounds, p, w, t0, t1))
+             return 1.0f;
+ 
+-        Vec3f tau = _grid->opticalDepth(sampler, p, w, t0, t1)*(_sigmaT/wPrime);
+-        if (endOnSurface)
+-            return _transmittance->surfaceProbability(tau, startOnSurface).avg();
+-        else
+-            return (_grid->density(p)*_sigmaT*_transmittance->mediumPdf(tau, startOnSurface)).avg();
++        Vec3f transmittance = _grid->transmittance(sampler, p, w, t0, t1, _sigmaT/wPrime);
++        if (onSurface) {
++            return transmittance.avg();
++        } else {
++            return (_grid->density(p)*_sigmaT*transmittance).avg();
++        }
+     }
+ }
+ 
++Vec3f VoxelMedium::transmittanceAndPdfs(PathSampleGenerator &sampler, const Ray &ray, bool startOnSurface,
++        bool endOnSurface, float &pdfForward, float &pdfBackward) const
++{
++    Vec3f p = _worldToGrid*ray.pos();
++    Vec3f w = _worldToGrid.transformVector(ray.dir());
++    float wPrime = w.length();
++    w /= wPrime;
++    float t0 = 0.0f, t1 = ray.farT()*wPrime;
++    if (!bboxIntersection(_gridBounds, p, w, t0, t1)) {
++        pdfForward = pdfBackward = 1.0f;
++        return Vec3f(1.0f);
++    }
++
++    Vec3f transmittance = _grid->transmittance(sampler, p, w, t0, t1, _sigmaT/wPrime);
++
++    if (_absorptionOnly) {
++        pdfForward = pdfBackward = 1.0f;
++    } else {
++        pdfForward  =   endOnSurface ? transmittance.avg() : (_grid->density(p)*_sigmaT*transmittance).avg();
++        pdfBackward = startOnSurface ? transmittance.avg() : (_grid->density(p)*_sigmaT*transmittance).avg();
++    }
++
++    return transmittance;
++}
++
+ }
+diff -uarN 2016_bitterli_nfor/src/core/media/VoxelMedium.hpp ../methods/2016_bitterli_nfor/src/core/media/VoxelMedium.hpp
+--- 2016_bitterli_nfor/src/core/media/VoxelMedium.hpp	2019-09-11 15:47:11.256791723 -0700
++++ ../methods/2016_bitterli_nfor/src/core/media/VoxelMedium.hpp	2019-09-11 11:31:25.366895588 -0700
+@@ -36,9 +36,10 @@
+ 
+     virtual bool sampleDistance(PathSampleGenerator &sampler, const Ray &ray,
+             MediumState &state, MediumSample &sample) const override;
+-    virtual Vec3f transmittance(PathSampleGenerator &sampler, const Ray &ray, bool startOnSurface,
+-            bool endOnSurface) const override;
+-    virtual float pdf(PathSampleGenerator &sampler, const Ray &ray, bool startOnSurface, bool endOnSurface) const override;
++    virtual Vec3f transmittance(PathSampleGenerator &sampler, const Ray &ray) const override;
++    virtual float pdf(PathSampleGenerator &sampler, const Ray &ray, bool onSurface) const override;
++    virtual Vec3f transmittanceAndPdfs(PathSampleGenerator &sampler, const Ray &ray, bool startOnSurface,
++            bool endOnSurface, float &pdfForward, float &pdfBackward) const override;
+ };
+ 
+ }
+diff -uarN 2016_bitterli_nfor/src/core/primitives/Instance.cpp ../methods/2016_bitterli_nfor/src/core/primitives/Instance.cpp
+--- 2016_bitterli_nfor/src/core/primitives/Instance.cpp	2019-09-11 15:47:11.256791723 -0700
++++ ../methods/2016_bitterli_nfor/src/core/primitives/Instance.cpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,458 +0,0 @@
+-#include "Instance.hpp"
+-#include "TriangleMesh.hpp"
+-
+-#include "sampling/PathSampleGenerator.hpp"
+-#include "sampling/SampleWarp.hpp"
+-
+-#include "bsdfs/NullBsdf.hpp"
+-
+-#include "io/JsonObject.hpp"
+-#include "io/Scene.hpp"
+-
+-#include <iomanip>
+-
+-namespace Tungsten {
+-
+-void Instance::buildProxy()
+-{
+-    std::vector<Vec3f> masterSize;
+-    for (const auto &m : _master) {
+-        m->prepareForRender();
+-        masterSize.emplace_back(m->bounds().diagonal()/m->transform().extractScaleVec());
+-    }
+-
+-    std::vector<Vertex> verts(_instanceCount*4);
+-    std::vector<TriangleI> tris(_instanceCount*2);
+-    for (uint32 i = 0; i < _instanceCount; ++i) {
+-        Vec3f diag = masterSize[_instanceId[i]];
+-        float size = diag.length();
+-
+-        Vec3f v0 = _master[_instanceId[i]]->transform()*Vec3f( size, 0.0f,  size);
+-        Vec3f v1 = _master[_instanceId[i]]->transform()*Vec3f(-size, 0.0f,  size);
+-        Vec3f v2 = _master[_instanceId[i]]->transform()*Vec3f(-size, 0.0f, -size);
+-        Vec3f v3 = _master[_instanceId[i]]->transform()*Vec3f( size, 0.0f, -size);
+-        v0 = _instancePos[i] + _instanceRot[i]*v0;
+-        v1 = _instancePos[i] + _instanceRot[i]*v1;
+-        v2 = _instancePos[i] + _instanceRot[i]*v2;
+-        v3 = _instancePos[i] + _instanceRot[i]*v3;
+-
+-        verts[i*4 + 0] = v0;
+-        verts[i*4 + 1] = v1;
+-        verts[i*4 + 2] = v2;
+-        verts[i*4 + 3] = v3;
+-        tris[i*2 + 0] = TriangleI(i*4 + 0, i*4 + 1, i*4 + 2, _instanceId[i]);
+-        tris[i*2 + 1] = TriangleI(i*4 + 0, i*4 + 2, i*4 + 3, _instanceId[i]);
+-    }
+-
+-    _proxy = std::make_shared<TriangleMesh>(std::move(verts), std::move(tris), std::make_shared<NullBsdf>(), "Instances", false, false);
+-}
+-
+-const Primitive &Instance::getMaster(const IntersectionTemporary &data) const
+-{
+-    return *_master[_instanceId[data.flags]];
+-}
+-
+-float Instance::powerToRadianceFactor() const
+-{
+-    return 0.0f;
+-}
+-
+-void Instance::fromJson(JsonPtr value, const Scene &scene)
+-{
+-    Primitive::fromJson(value, scene);
+-
+-    _master.clear();
+-    if (auto master = value["masters"])
+-        for (unsigned i = 0; i < master.size(); ++i)
+-            _master.emplace_back(scene.fetchPrimitive(master[i]));
+-
+-    if (auto instances = value["instances"]) {
+-        if (instances.isString()) {
+-            _instanceFileA = scene.fetchResource(instances);
+-        } else {
+-            _instanceFileA = nullptr;
+-
+-            _instanceCount = instances.size();
+-            _instancePos = zeroAlloc<Vec3f>(_instanceCount);
+-            _instanceRot = zeroAlloc<QuaternionF>(_instanceCount);
+-            _instanceId = zeroAlloc<uint8>(_instanceCount);
+-
+-            for (unsigned i = 0; i < _instanceCount; ++i) {
+-                instances[i].getField("id", _instanceId[i]);
+-                Mat4f transform;
+-                instances[i].getField("transform", transform);
+-                _instancePos[i] = transform.extractTranslationVec();
+-                _instanceRot[i] = QuaternionF::fromMatrix(transform.extractRotation());
+-            }
+-        }
+-    }
+-    if (auto instanceA = value["instancesA"]) _instanceFileA = scene.fetchResource(instanceA);
+-    if (auto instanceB = value["instancesB"]) _instanceFileB = scene.fetchResource(instanceB);
+-
+-    value.getField("ratio", _ratio);
+-}
+-
+-rapidjson::Value Instance::toJson(Allocator &allocator) const
+-{
+-    rapidjson::Value masters;
+-    masters.SetArray();
+-    for (const auto &m : _master)
+-        masters.PushBack(m->toJson(allocator), allocator);
+-
+-    JsonObject result{Primitive::toJson(allocator), allocator,
+-        "type", "instances",
+-        "masters", std::move(masters),
+-        "ratio", _ratio
+-    };
+-
+-    if (_instanceFileB) {
+-        result.add("instancesB", *_instanceFileB);
+-        if (_instanceFileA)
+-            result.add("instancesA", *_instanceFileA);
+-    } else if (_instanceFileA) {
+-        result.add("instances", *_instanceFileA);
+-    } else {
+-        rapidjson::Value instances;
+-        instances.SetArray();
+-        for (uint32 i = 0; i < _instanceCount; ++i) {
+-            JsonObject instance{allocator,
+-                "id", _instanceId[i],
+-                "transform", Mat4f::translate(_instancePos[i])*_instanceRot[i].toMatrix()
+-            };
+-            instances.PushBack(rapidjson::Value(instance), allocator);
+-        }
+-        result.add("instances", std::move(instances));
+-    }
+-
+-    return result;
+-}
+-
+-const uint32 CompressionLossy = 1;
+-const uint32 CompressionLZO = 2;
+-
+-void loadLossyInstance(InputStreamHandle &in, const Box3f &bounds, Vec3f &pos, QuaternionF &f)
+-{
+-    CONSTEXPR uint32 PosW = 21;
+-    CONSTEXPR uint32 RotW = 8;
+-    CONSTEXPR uint32 AxisW = 12;
+-
+-    uint32 a, b, c;
+-    FileUtils::streamRead(in, a);
+-    FileUtils::streamRead(in, b);
+-    FileUtils::streamRead(in, c);
+-
+-    uint32 mask = ((1 << 21) - 1);
+-    uint32 x = (a >> 11);
+-    uint32 y = ((a << 10) | (b >> 22)) & mask;
+-    uint32 z = ((b >> 1) & mask);
+-
+-    uint32 rot = c & ((1 << RotW) - 1);
+-    uint32 axisX = (c >> RotW) & ((1 << AxisW) - 1);
+-    uint32 axisY = (c >> (RotW + AxisW)) & ((1 << AxisW) - 1);
+-
+-    float axisXf = (axisX/float(1 << AxisW))*2.0f - 1.0f;
+-    float axisYf = (axisY/float(1 << AxisW))*2.0f - 1.0f;
+-    float rotW = TWO_PI*rot/(1 << RotW);
+-    Vec3f w(axisXf, axisYf, std::sqrt(max(1 - sqr(axisXf) - sqr(axisYf), 0.0f)));
+-
+-    pos = lerp(bounds.min(), bounds.max(), Vec3f(Vec3u(x, y, z))/float(1 << PosW));
+-    f = QuaternionF(rotW, w);
+-}
+-void loadLosslessInstance(InputStreamHandle &in, Vec3f &pos, QuaternionF &f)
+-{
+-    FileUtils::streamRead(in, pos);
+-    Vec3f w;
+-    FileUtils::streamRead(in, w);
+-
+-    float angle = w.length();
+-    w = (angle > 0 ? w/angle : Vec3f(0.0f, 1.0f, 0.0f));
+-    f = QuaternionF(angle, w);
+-}
+-
+-void saveLossyInstance(OutputStreamHandle &out, const Box3f &bounds, Vec3f pos, QuaternionF f)
+-{
+-    CONSTEXPR uint32 RotW = 8;
+-    CONSTEXPR uint32 AxisW = 12;
+-
+-    Vec3u xyz(clamp(Vec3i(((pos - bounds.min())/(bounds.max() - bounds.min()))*(1 << 21)), Vec3i(0), Vec3i((1 << 21) - 1)));
+-    uint32 a, b;
+-    a = (xyz[0] << 11) | (xyz[1] >> 10);
+-    b = (xyz[1] << 22) | (xyz[2] << 1);
+-
+-    float angle = std::acos(clamp(f.x(), -1.0f, 1.0f))*2.0f;
+-    Vec3f w = Vec3f(f[1], f[2], f[3]).normalized();
+-    if (f[3] < 0) {
+-        w = -w;
+-        angle = TWO_PI - angle;
+-    }
+-
+-    uint32 rot = clamp(int(angle/TWO_PI*(1 << RotW)), 0, (1 << RotW) - 1);
+-    uint32 axisX = clamp(int((w[0]*0.5f + 0.5f)*(1 << AxisW)), 0, (1 << AxisW) - 1);
+-    uint32 axisY = clamp(int((w[1]*0.5f + 0.5f)*(1 << AxisW)), 0, (1 << AxisW) - 1);
+-
+-    uint32 c = (axisY << (RotW + AxisW)) | (axisX << RotW) | rot;
+-
+-    FileUtils::streamWrite(out, a);
+-    FileUtils::streamWrite(out, b);
+-    FileUtils::streamWrite(out, c);
+-}
+-void saveLosslessInstance(OutputStreamHandle &out, Vec3f pos, QuaternionF f)
+-{
+-    FileUtils::streamWrite(out, pos);
+-    float angle = std::acos(clamp(f.x(), -1.0f, 1.0f))*2.0f;
+-    Vec3f w = Vec3f(f[1], f[2], f[3]).normalized()*angle;
+-    FileUtils::streamWrite(out, w);
+-}
+-
+-bool loadInstances(const Path &path, Box3f &bounds, uint32 &instanceCount, std::unique_ptr<Vec3f[]> &instancePos, std::unique_ptr<QuaternionF[]> &instanceRot, std::unique_ptr<uint8[]> &instanceId)
+-{
+-    InputStreamHandle in = FileUtils::openInputStream(path);
+-    if (!in)
+-        return false;
+-
+-    FileUtils::streamRead(in, instanceCount);
+-    uint32 compressed;
+-    FileUtils::streamRead(in, compressed);
+-
+-    FileUtils::streamRead(in, bounds);
+-
+-    instancePos.reset(new Vec3f[instanceCount]);
+-    instanceRot.reset(new QuaternionF[instanceCount]);
+-    instanceId.reset(new uint8[instanceCount]);
+-
+-    if (compressed & CompressionLossy)
+-        for (uint32 i = 0; i < instanceCount; ++i)
+-            loadLossyInstance(in, bounds, instancePos[i], instanceRot[i]);
+-    else
+-        for (uint32 i = 0; i < instanceCount; ++i)
+-            loadLosslessInstance(in, instancePos[i], instanceRot[i]);
+-    FileUtils::streamRead(in, instanceId.get(), instanceCount);
+-
+-    return true;
+-}
+-
+-bool saveInstances(const Path &path, uint32 instanceCount, const Vec3f *instancePos, const QuaternionF *instanceRot, const uint8 *instanceId, bool compress)
+-{
+-    OutputStreamHandle out = FileUtils::openOutputStream(path);
+-    if (!out)
+-        return false;
+-
+-    FileUtils::streamWrite(out, instanceCount);
+-    FileUtils::streamWrite(out, uint32(compress ? CompressionLossy : 0));
+-
+-    Box3f bounds;
+-    for (uint32 i = 0; i < instanceCount; ++i)
+-        bounds.grow(instancePos[i]);
+-    FileUtils::streamWrite(out, bounds);
+-
+-    if (compress)
+-        for (uint32 i = 0; i < instanceCount; ++i)
+-            saveLossyInstance(out, bounds, instancePos[i], instanceRot[i]);
+-    else
+-        for (uint32 i = 0; i < instanceCount; ++i)
+-            saveLosslessInstance(out, instancePos[i], instanceRot[i]);
+-    FileUtils::streamWrite(out, instanceId, instanceCount);
+-
+-    return true;
+-}
+-
+-Instance::Instance()
+-: _ratio(0),
+-  _instanceCount(0)
+-{
+-}
+-
+-void Instance::loadResources()
+-{
+-    Box3f bounds;
+-    if (_instanceFileA)
+-        loadInstances(*_instanceFileA, bounds, _instanceCount, _instancePos, _instanceRot, _instanceId);
+-    if (_instanceFileB) {
+-        uint32 instanceCountB;
+-        std::unique_ptr<Vec3f[]> instancePosB;
+-        std::unique_ptr<QuaternionF[]> instanceRotB;
+-        std::unique_ptr<uint8[]> instanceIdB;
+-        if (loadInstances(*_instanceFileB, bounds, instanceCountB, instancePosB, instanceRotB, instanceIdB) && _instanceCount == instanceCountB) {
+-            for (uint32 i = 0; i < _instanceCount; ++i) {
+-                _instancePos[i] = lerp(_instancePos[i], instancePosB[i], _ratio);
+-                _instanceRot[i] = _instanceRot[i].slerp(instanceRotB[i], _ratio);
+-            }
+-        }
+-    }
+-}
+-
+-void Instance::saveResources()
+-{
+-    if (_instanceFileA && !_instanceFileB)
+-        saveInstances(*_instanceFileA, _instanceCount, _instancePos.get(), _instanceRot.get(), _instanceId.get(), false);
+-}
+-
+-bool Instance::intersect(Ray &ray, IntersectionTemporary &data) const
+-{
+-    bool hit = false;
+-    uint32 prim;
+-    _bvh->trace(ray, [&](Ray &ray, uint32 id, float tMin, const Vec3pf &/*bounds*/) {
+-        QuaternionF invRot = _instanceRot[id].conjugate();
+-        Ray localRay = ray.scatter(invRot*(ray.pos() - _instancePos[id]), invRot*ray.dir(), tMin);
+-        bool hitI = _master[_instanceId[id]]->intersect(localRay, data);
+-        if (hitI) {
+-            hit = true;
+-            prim = id;
+-            ray.setFarT(localRay.farT());
+-        }
+-    });
+-
+-    if (hit) {
+-        data.primitive = this;
+-        data.flags = prim;
+-    }
+-
+-    return hit;
+-}
+-
+-bool Instance::occluded(const Ray &ray) const
+-{
+-    Ray tmpRay = ray;
+-    bool occluded = false;
+-    _bvh->trace(tmpRay, [&](Ray &ray, uint32 id, float tMin, const Vec3pf &/*bounds*/) {
+-        QuaternionF invRot = _instanceRot[id].conjugate();
+-        Ray localRay = ray.scatter(invRot*(ray.pos() - _instancePos[id]), invRot*ray.dir(), tMin);
+-        bool occludedI = _master[_instanceId[id]]->occluded(localRay);
+-        if (occludedI) {
+-            occluded = true;
+-            ray.setFarT(ray.farT() - 1);
+-        }
+-    });
+-
+-    return occluded;
+-}
+-
+-bool Instance::hitBackside(const IntersectionTemporary &data) const
+-{
+-    return getMaster(data).hitBackside(data);
+-}
+-
+-void Instance::intersectionInfo(const IntersectionTemporary &data, IntersectionInfo &info) const
+-{
+-    getMaster(data).intersectionInfo(data, info);
+-
+-    QuaternionF rot = _instanceRot[data.flags];
+-    info.Ng = rot*info.Ng;
+-    info.Ns = rot*info.Ns;
+-    info.p = _instancePos[data.flags] + rot*info.p;
+-    info.primitive = this;
+-}
+-
+-bool Instance::tangentSpace(const IntersectionTemporary &/*data*/, const IntersectionInfo &/*info*/, Vec3f &/*T*/, Vec3f &/*B*/) const
+-{
+-    return false;
+-}
+-
+-bool Instance::isSamplable() const
+-{
+-    return false;
+-}
+-
+-void Instance::makeSamplable(const TraceableScene &/*scene*/, uint32 /*threadIndex*/)
+-{
+-}
+-
+-bool Instance::invertParametrization(Vec2f /*uv*/, Vec3f &/*pos*/) const
+-{
+-    return false;
+-}
+-
+-bool Instance::isDirac() const
+-{
+-    return false;
+-}
+-
+-bool Instance::isInfinite() const
+-{
+-    return false;
+-}
+-
+-float Instance::approximateRadiance(uint32 /*threadIndex*/, const Vec3f &/*p*/) const
+-{
+-    return -1.0f;
+-}
+-
+-Box3f Instance::bounds() const
+-{
+-    return _bounds;
+-}
+-
+-const TriangleMesh &Instance::asTriangleMesh()
+-{
+-    if (!_proxy)
+-        buildProxy();
+-    return *_proxy;
+-}
+-
+-void Instance::prepareForRender()
+-{
+-    for (auto &m : _master)
+-        m->prepareForRender();
+-
+-    Bvh::PrimVector prims;
+-    prims.reserve(_instanceCount);
+-
+-    auto rot = QuaternionF::fromMatrix(_transform.extractRotation());
+-    for (uint32 i = 0; i < _instanceCount; ++i) {
+-        _instancePos[i] = _transform*_instancePos[i];
+-        _instanceRot[i] = rot*_instanceRot[i];
+-    }
+-
+-    std::vector<Box3f> masterBounds;
+-    for (const auto &m : _master)
+-        masterBounds.emplace_back(m->bounds());
+-
+-    _bounds = Box3f();
+-    for (uint32 i = 0; i < _instanceCount; ++i) {
+-        Box3f bLocal = masterBounds[_instanceId[i]];
+-
+-        Box3f bGlobal;
+-        for (float x : {0, 1})
+-            for (float y : {0, 1})
+-                for (float z : {0, 1})
+-                    bGlobal.grow(_instancePos[i] + _instanceRot[i]*lerp(bLocal.min(), bLocal.max(), Vec3f(x, y, z)));
+-
+-        _bounds.grow(bGlobal);
+-
+-        prims.emplace_back(Bvh::Primitive(bGlobal, bGlobal.center(), i));
+-    }
+-
+-    _bvh.reset(new Bvh::BinaryBvh(std::move(prims), 2));
+-
+-    Primitive::prepareForRender();
+-}
+-
+-void Instance::teardownAfterRender()
+-{
+-    _bvh.reset();
+-    loadResources();
+-
+-    Primitive::teardownAfterRender();
+-}
+-
+-int Instance::numBsdfs() const
+-{
+-    return _master.size();
+-}
+-
+-std::shared_ptr<Bsdf> &Instance::bsdf(int index)
+-{
+-    return _master[index]->bsdf(0);
+-}
+-
+-void Instance::setBsdf(int index, std::shared_ptr<Bsdf> &bsdf)
+-{
+-    _master[index]->setBsdf(0, bsdf);
+-}
+-
+-Primitive *Instance::clone()
+-{
+-    return nullptr;
+-}
+-
+-}
+diff -uarN 2016_bitterli_nfor/src/core/primitives/Instance.hpp ../methods/2016_bitterli_nfor/src/core/primitives/Instance.hpp
+--- 2016_bitterli_nfor/src/core/primitives/Instance.hpp	2019-09-11 15:47:11.256791723 -0700
++++ ../methods/2016_bitterli_nfor/src/core/primitives/Instance.hpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,78 +0,0 @@
+-#ifndef INSTANCE_HPP_
+-#define INSTANCE_HPP_
+-
+-#include "Primitive.hpp"
+-
+-#include "math/Quaternion.hpp"
+-
+-#include "bvh/BinaryBvh.hpp"
+-
+-namespace Tungsten {
+-
+-class Instance : public Primitive
+-{
+-    std::vector<std::shared_ptr<Primitive>> _master;
+-
+-    PathPtr _instanceFileA;
+-    PathPtr _instanceFileB;
+-    float _ratio;
+-
+-    uint32 _instanceCount;
+-    std::unique_ptr<Vec3f[]> _instancePos;
+-    std::unique_ptr<QuaternionF[]> _instanceRot;
+-    std::unique_ptr<uint8[]> _instanceId;
+-
+-    Box3f _bounds;
+-
+-    std::shared_ptr<TriangleMesh> _proxy;
+-
+-    std::unique_ptr<Bvh::BinaryBvh> _bvh;
+-
+-    void buildProxy();
+-
+-    const Primitive &getMaster(const IntersectionTemporary &data) const;
+-
+-protected:
+-    virtual float powerToRadianceFactor() const override;
+-
+-public:
+-    Instance();
+-
+-    virtual void fromJson(JsonPtr value, const Scene &scene) override;
+-    virtual rapidjson::Value toJson(Allocator &allocator) const override;
+-
+-    virtual void loadResources() override;
+-    virtual void saveResources() override;
+-
+-    virtual bool intersect(Ray &ray, IntersectionTemporary &data) const override;
+-    virtual bool occluded(const Ray &ray) const override;
+-    virtual bool hitBackside(const IntersectionTemporary &data) const override;
+-    virtual void intersectionInfo(const IntersectionTemporary &data, IntersectionInfo &info) const override;
+-    virtual bool tangentSpace(const IntersectionTemporary &data, const IntersectionInfo &info, Vec3f &T, Vec3f &B) const override;
+-
+-    virtual bool isSamplable() const override;
+-    virtual void makeSamplable(const TraceableScene &scene, uint32 threadIndex) override;
+-
+-    virtual bool invertParametrization(Vec2f uv, Vec3f &pos) const override;
+-
+-    virtual bool isDirac() const override;
+-    virtual bool isInfinite() const override;
+-
+-    virtual float approximateRadiance(uint32 threadIndex, const Vec3f &p) const override;
+-    virtual Box3f bounds() const override;
+-
+-    virtual const TriangleMesh &asTriangleMesh() override;
+-
+-    virtual void prepareForRender() override;
+-    virtual void teardownAfterRender() override;
+-
+-    virtual int numBsdfs() const override;
+-    virtual std::shared_ptr<Bsdf> &bsdf(int index) override;
+-    virtual void setBsdf(int index, std::shared_ptr<Bsdf> &bsdf) override;
+-
+-    virtual Primitive *clone() override;
+-};
+-
+-}
+-
+-#endif /* INSTANCE_HPP_ */
+diff -uarN 2016_bitterli_nfor/src/core/primitives/IntersectionTemporary.hpp ../methods/2016_bitterli_nfor/src/core/primitives/IntersectionTemporary.hpp
+--- 2016_bitterli_nfor/src/core/primitives/IntersectionTemporary.hpp	2019-09-11 15:47:11.256791723 -0700
++++ ../methods/2016_bitterli_nfor/src/core/primitives/IntersectionTemporary.hpp	2019-09-11 11:31:25.366895588 -0700
+@@ -10,7 +10,6 @@
+ struct IntersectionTemporary
+ {
+     const Primitive *primitive;
+-    uint32 flags;
+     uint8 data[64];
+ 
+     IntersectionTemporary() = default;
+diff -uarN 2016_bitterli_nfor/src/core/primitives/PrimitiveFactory.cpp ../methods/2016_bitterli_nfor/src/core/primitives/PrimitiveFactory.cpp
+--- 2016_bitterli_nfor/src/core/primitives/PrimitiveFactory.cpp	2019-09-11 15:47:11.256791723 -0700
++++ ../methods/2016_bitterli_nfor/src/core/primitives/PrimitiveFactory.cpp	2019-09-11 11:31:25.366895588 -0700
+@@ -5,7 +5,6 @@
+ #include "InfiniteSphere.hpp"
+ #include "TriangleMesh.hpp"
+ #include "Cylinder.hpp"
+-#include "Instance.hpp"
+ #include "Skydome.hpp"
+ #include "Sphere.hpp"
+ #include "Curves.hpp"
+@@ -26,7 +25,6 @@
+     {"point", std::make_shared<Point>},
+     {"skydome", std::make_shared<Skydome>},
+     {"cylinder", std::make_shared<Cylinder>},
+-    {"instances", std::make_shared<Instance>},
+     {"infinite_sphere", std::make_shared<InfiniteSphere>},
+     {"infinite_sphere_cap", std::make_shared<InfiniteSphereCap>},
+     {"minecraft_map", std::make_shared<MinecraftLoader::TraceableMinecraftMap>},
+diff -uarN 2016_bitterli_nfor/src/core/samplerecords/MediumSample.hpp ../methods/2016_bitterli_nfor/src/core/samplerecords/MediumSample.hpp
+--- 2016_bitterli_nfor/src/core/samplerecords/MediumSample.hpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/samplerecords/MediumSample.hpp	2019-09-11 11:31:25.366895588 -0700
+@@ -15,7 +15,6 @@
+     Vec3f continuedWeight;
+     float t;
+     Vec3f weight;
+-    Vec3f emission;
+     float pdf;
+     bool exited;
+ };
+diff -uarN 2016_bitterli_nfor/src/core/sampling/Distribution1D.hpp ../methods/2016_bitterli_nfor/src/core/sampling/Distribution1D.hpp
+--- 2016_bitterli_nfor/src/core/sampling/Distribution1D.hpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/sampling/Distribution1D.hpp	2019-09-11 11:31:25.366895588 -0700
+@@ -38,11 +38,6 @@
+     {
+         return _pdf[idx];
+     }
+-
+-    float cdf(int idx) const
+-    {
+-        return _cdf[idx];
+-    }
+ };
+ 
+ }
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/DavisTransmittance.cpp ../methods/2016_bitterli_nfor/src/core/transmittances/DavisTransmittance.cpp
+--- 2016_bitterli_nfor/src/core/transmittances/DavisTransmittance.cpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/DavisTransmittance.cpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,62 +0,0 @@
+-#include "DavisTransmittance.hpp"
+-
+-#include "io/JsonObject.hpp"
+-
+-namespace Tungsten {
+-
+-DavisTransmittance::DavisTransmittance()
+-: _alpha(1.1f)
+-{
+-}
+-
+-void DavisTransmittance::fromJson(JsonPtr value, const Scene &scene)
+-{
+-    Transmittance::fromJson(value, scene);
+-    value.getField("alpha", _alpha);
+-
+-    if (_alpha < 1 + 1e-6f) {
+-        std::cout << "Warning: alpha parameter of Davis transmittance has to be > 1. Clamping the current value (" << _alpha << ")" << std::endl;
+-        _alpha = 1 + 1e-6f;
+-    }
+-}
+-
+-rapidjson::Value DavisTransmittance::toJson(Allocator &allocator) const
+-{
+-    return JsonObject{Transmittance::toJson(allocator), allocator,
+-        "type", "davis",
+-        "alpha", _alpha
+-    };
+-}
+-
+-Vec3f DavisTransmittance::surfaceSurface(const Vec3f &tau) const
+-{
+-    return std::pow(1.0f + tau/_alpha, -_alpha);
+-}
+-Vec3f DavisTransmittance::surfaceMedium(const Vec3f &tau) const
+-{
+-    return std::pow(1.0f + tau/_alpha, -(_alpha + 1.0f));
+-}
+-Vec3f DavisTransmittance::mediumSurface(const Vec3f &tau) const
+-{
+-    return surfaceMedium(tau);
+-}
+-Vec3f DavisTransmittance::mediumMedium(const Vec3f &tau) const
+-{
+-    return (1.0f + 1.0f/_alpha)*std::pow(1.0f + tau/_alpha, -(_alpha + 2.0f));
+-}
+-
+-float DavisTransmittance::sigmaBar() const
+-{
+-    return 1.0f;
+-}
+-
+-float DavisTransmittance::sampleSurface(PathSampleGenerator &sampler) const
+-{
+-    return _alpha*(std::pow(1.0f - sampler.next1D(), -1.0f/_alpha) - 1.0f);
+-}
+-float DavisTransmittance::sampleMedium(PathSampleGenerator &sampler) const
+-{
+-    return _alpha*(std::pow(1.0f - sampler.next1D(), -1.0f/(1.0f + _alpha)) - 1.0f);
+-}
+-
+-}
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/DavisTransmittance.hpp ../methods/2016_bitterli_nfor/src/core/transmittances/DavisTransmittance.hpp
+--- 2016_bitterli_nfor/src/core/transmittances/DavisTransmittance.hpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/DavisTransmittance.hpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,31 +0,0 @@
+-#ifndef DAVISTRANSMITTANCE_HPP_
+-#define DAVISTRANSMITTANCE_HPP_
+-
+-#include "Transmittance.hpp"
+-
+-namespace Tungsten {
+-
+-class DavisTransmittance : public Transmittance
+-{
+-    float _alpha;
+-
+-public:
+-    DavisTransmittance();
+-
+-    virtual void fromJson(JsonPtr value, const Scene &scene) override;
+-    virtual rapidjson::Value toJson(Allocator &allocator) const override;
+-
+-    virtual Vec3f surfaceSurface(const Vec3f &tau) const override final;
+-    virtual Vec3f surfaceMedium(const Vec3f &tau) const override final;
+-    virtual Vec3f mediumSurface(const Vec3f &tau) const override final;
+-    virtual Vec3f mediumMedium(const Vec3f &tau) const override final;
+-
+-    virtual float sigmaBar() const override final;
+-
+-    virtual float sampleSurface(PathSampleGenerator &sampler) const override final;
+-    virtual float sampleMedium(PathSampleGenerator &sampler) const override final;
+-};
+-
+-}
+-
+-#endif /* DAVISTRANSMITTANCE_HPP_ */
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/DavisWeinsteinTransmittance.cpp ../methods/2016_bitterli_nfor/src/core/transmittances/DavisWeinsteinTransmittance.cpp
+--- 2016_bitterli_nfor/src/core/transmittances/DavisWeinsteinTransmittance.cpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/DavisWeinsteinTransmittance.cpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,119 +0,0 @@
+-#include "DavisWeinsteinTransmittance.hpp"
+-
+-#include "math/MathUtil.hpp"
+-
+-#include "io/JsonObject.hpp"
+-
+-namespace Tungsten {
+-
+-DavisWeinsteinTransmittance::DavisWeinsteinTransmittance()
+-: _h(0.75f),
+-  _c(1.0f)
+-{
+-}
+-
+-void DavisWeinsteinTransmittance::fromJson(JsonPtr value, const Scene &scene)
+-{
+-    Transmittance::fromJson(value, scene);
+-    value.getField("h", _h);
+-    value.getField("c", _c);
+-    if (_h < 0.5f || _h > 1.0f)
+-        std::cout << "Warning: Valid range of Davis Weinstein transmittance is [0.5, 1.0]. Clamping current value (" << _h << ") to within range" << std::endl;
+-    _h = clamp(_h, 0.5f, 1.0f);
+-}
+-
+-rapidjson::Value DavisWeinsteinTransmittance::toJson(Allocator &allocator) const
+-{
+-    return JsonObject{Transmittance::toJson(allocator), allocator,
+-        "type", "davis",
+-        "h", _h,
+-        "c", _c
+-    };
+-}
+-
+-float DavisWeinsteinTransmittance::computeAlpha(float tau) const
+-{
+-    float beta = 2.0f*_h - 1.0f;
+-    return std::pow(tau, 1 - beta)/(std::pow(_c, 1 + beta));
+-}
+-
+-Vec3f DavisWeinsteinTransmittance::surfaceSurface(const Vec3f &tau) const
+-{
+-    float alpha = computeAlpha(tau[0]);
+-    float Tr = std::pow(1.0f + tau[0]/alpha, -alpha);
+-
+-    return Vec3f(std::isnan(Tr) ? 0 : Tr);
+-}
+-Vec3f DavisWeinsteinTransmittance::surfaceMedium(const Vec3f &tau) const
+-{
+-    float beta = 2.0f*_h - 1.0f;
+-    float t = tau[0];
+-    float alpha = computeAlpha(t);
+-    float base = 1.0f + t/alpha;
+-    float trSurface = std::pow(base, -alpha);
+-
+-    float Tr = trSurface*(beta/base - (beta - 1.0f)*alpha/t*std::log(base));
+-
+-    return Vec3f(std::isnan(Tr) ? 0 : Tr);
+-}
+-Vec3f DavisWeinsteinTransmittance::mediumSurface(const Vec3f &tau) const
+-{
+-    return surfaceMedium(tau);
+-}
+-Vec3f DavisWeinsteinTransmittance::mediumMedium(const Vec3f &tau) const
+-{
+-    float beta = 2.0f*_h - 1.0f;
+-    float t = tau[0];
+-    float alpha = computeAlpha(t);
+-    float base = 1.0f + t/alpha;
+-    float logBase = std::log(base);
+-    float trSurface = std::pow(base, -alpha);
+-    float term1 = beta*(-1.0f + beta*(1.0f + t) + (-1.0f + 2.0f*beta)*t/alpha)/(t*base*base);
+-    float term2 = ((-1.0f + beta)*beta*alpha/(t*t)*(2.0f*t + base)*logBase)/base;
+-    float term3 = (beta - 1.0f)*alpha/t*logBase;
+-
+-    float Tr = trSurface*(term1 - term2 + term3*term3);
+-
+-    return Vec3f(std::isnan(Tr) ? 0 : Tr);
+-}
+-
+-float DavisWeinsteinTransmittance::sigmaBar() const
+-{
+-    return 1.0f;
+-}
+-
+-// We have no real way of analytically sampling this function, so a simple bisection will have to do
+-float DavisWeinsteinTransmittance::sampleSurface(PathSampleGenerator &sampler) const
+-{
+-    float xi = sampler.next1D();
+-    auto cdf = [this](float tau) { return 1.0f - surfaceSurface(Vec3f(tau))[0]; };
+-    float step = 1e6;
+-    float result = step*2;
+-    while (step > 1e-6) {
+-        if (cdf(result) > xi)
+-            result -= step;
+-        else
+-            result += step;
+-        step /= 2;
+-    }
+-
+-    return result;
+-}
+-float DavisWeinsteinTransmittance::sampleMedium(PathSampleGenerator &sampler) const
+-{
+-    float xi = sampler.next1D();
+-    auto cdf = [this](float tau) { return 1.0f - mediumSurface(Vec3f(tau))[0]; };
+-    float step = 1e6;
+-    float result = step * 2;
+-    while (step > 1e-6) {
+-        if (cdf(result) > xi)
+-            result -= step;
+-        else
+-            result += step;
+-        step /= 2;
+-    }
+-
+-    return result;
+-}
+-
+-}
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/DavisWeinsteinTransmittance.hpp ../methods/2016_bitterli_nfor/src/core/transmittances/DavisWeinsteinTransmittance.hpp
+--- 2016_bitterli_nfor/src/core/transmittances/DavisWeinsteinTransmittance.hpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/DavisWeinsteinTransmittance.hpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,34 +0,0 @@
+-#ifndef DAVISWEINSTEINTRANSMITTANCE_HPP_
+-#define DAVISWEINSTEINTRANSMITTANCE_HPP_
+-
+-#include "Transmittance.hpp"
+-
+-namespace Tungsten {
+-
+-class DavisWeinsteinTransmittance : public Transmittance
+-{
+-    float _h;
+-    float _c;
+-
+-    float computeAlpha(float tau) const;
+-
+-public:
+-    DavisWeinsteinTransmittance();
+-
+-    virtual void fromJson(JsonPtr value, const Scene &scene) override;
+-    virtual rapidjson::Value toJson(Allocator &allocator) const override;
+-
+-    virtual Vec3f surfaceSurface(const Vec3f &tau) const override final;
+-    virtual Vec3f surfaceMedium(const Vec3f &tau) const override final;
+-    virtual Vec3f mediumSurface(const Vec3f &tau) const override final;
+-    virtual Vec3f mediumMedium(const Vec3f &tau) const override final;
+-
+-    virtual float sigmaBar() const override final;
+-
+-    virtual float sampleSurface(PathSampleGenerator &sampler) const override final;
+-    virtual float sampleMedium(PathSampleGenerator &sampler) const override final;
+-};
+-
+-}
+-
+-#endif /* DAVISWEINSTEINTRANSMITTANCE_HPP_ */
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/DoubleExponentialTransmittance.cpp ../methods/2016_bitterli_nfor/src/core/transmittances/DoubleExponentialTransmittance.cpp
+--- 2016_bitterli_nfor/src/core/transmittances/DoubleExponentialTransmittance.cpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/DoubleExponentialTransmittance.cpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,68 +0,0 @@
+-#include "DoubleExponentialTransmittance.hpp"
+-
+-#include "sampling/UniformPathSampler.hpp"
+-
+-#include "math/MathUtil.hpp"
+-
+-#include "io/JsonObject.hpp"
+-
+-#include "Memory.hpp"
+-
+-namespace Tungsten {
+-
+-DoubleExponentialTransmittance::DoubleExponentialTransmittance()
+-: _sigmaA(0.5f),
+-  _sigmaB(10.0f)
+-{
+-}
+-
+-void DoubleExponentialTransmittance::fromJson(JsonPtr value, const Scene &scene)
+-{
+-    Transmittance::fromJson(value, scene);
+-    value.getField("sigma_a", _sigmaA);
+-    value.getField("sigma_b", _sigmaB);
+-}
+-
+-rapidjson::Value DoubleExponentialTransmittance::toJson(Allocator &allocator) const
+-{
+-    return JsonObject{Transmittance::toJson(allocator), allocator,
+-        "type", "double_exponential",
+-        "sigma_a", _sigmaA,
+-        "sigma_b", _sigmaB,
+-    };
+-}
+-
+-Vec3f DoubleExponentialTransmittance::surfaceSurface(const Vec3f &tau) const
+-{
+-    return 0.5f*(std::exp(-_sigmaA*tau) + std::exp(-_sigmaB*tau));
+-}
+-Vec3f DoubleExponentialTransmittance::surfaceMedium(const Vec3f &tau) const
+-{
+-    return 0.5f*(_sigmaA*std::exp(-_sigmaA*tau) + _sigmaB*std::exp(-_sigmaB*tau));
+-}
+-Vec3f DoubleExponentialTransmittance::mediumSurface(const Vec3f &tau) const
+-{
+-    return (_sigmaA*std::exp(-_sigmaA*tau) + _sigmaB*std::exp(-_sigmaB*tau))/(_sigmaA + _sigmaB);
+-}
+-Vec3f DoubleExponentialTransmittance::mediumMedium(const Vec3f &tau) const
+-{
+-    return (sqr(_sigmaA)*std::exp(-_sigmaA*tau) + sqr(_sigmaB)*std::exp(-_sigmaB*tau))/(_sigmaA + _sigmaB);
+-}
+-
+-float DoubleExponentialTransmittance::sigmaBar() const
+-{
+-    return 0.5f*(_sigmaA + _sigmaB);
+-}
+-
+-float DoubleExponentialTransmittance::sampleSurface(PathSampleGenerator &sampler) const
+-{
+-    float t = -std::log(1.0f - sampler.next1D());
+-    return sampler.nextBoolean(0.5f) ? t/_sigmaA : t/_sigmaB;
+-}
+-float DoubleExponentialTransmittance::sampleMedium(PathSampleGenerator &sampler) const
+-{
+-    float t = -std::log(1.0f - sampler.next1D());
+-    return sampler.nextBoolean(_sigmaA/(_sigmaA + _sigmaB)) ? t/_sigmaA : t/_sigmaB;
+-}
+-
+-}
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/DoubleExponentialTransmittance.hpp ../methods/2016_bitterli_nfor/src/core/transmittances/DoubleExponentialTransmittance.hpp
+--- 2016_bitterli_nfor/src/core/transmittances/DoubleExponentialTransmittance.hpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/DoubleExponentialTransmittance.hpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,35 +0,0 @@
+-#ifndef DoubleExponentialTransmittance_HPP_
+-#define DoubleExponentialTransmittance_HPP_
+-
+-#include "Transmittance.hpp"
+-
+-namespace Tungsten {
+-
+-class DoubleExponentialTransmittance : public Transmittance
+-{
+-    float _sigmaA;
+-    float _sigmaB;
+-
+-public:
+-    DoubleExponentialTransmittance();
+-
+-    virtual void fromJson(JsonPtr value, const Scene &scene) override;
+-    virtual rapidjson::Value toJson(Allocator &allocator) const override;
+-
+-    virtual Vec3f surfaceSurface(const Vec3f &tau) const override final;
+-    virtual Vec3f surfaceMedium(const Vec3f &tau) const override final;
+-    virtual Vec3f mediumSurface(const Vec3f &tau) const override final;
+-    virtual Vec3f mediumMedium(const Vec3f &tau) const override final;
+-
+-    virtual float sigmaBar() const override final;
+-
+-    virtual float sampleSurface(PathSampleGenerator &sampler) const override final;
+-    virtual float sampleMedium(PathSampleGenerator &sampler) const override final;
+-};
+-
+-
+-}
+-
+-
+-
+-#endif /* DoubleExponentialTransmittance_HPP_ */
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/ErlangTransmittance.cpp ../methods/2016_bitterli_nfor/src/core/transmittances/ErlangTransmittance.cpp
+--- 2016_bitterli_nfor/src/core/transmittances/ErlangTransmittance.cpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/ErlangTransmittance.cpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,69 +0,0 @@
+-#include "ErlangTransmittance.hpp"
+-
+-#include "sampling/UniformPathSampler.hpp"
+-
+-#include "math/MathUtil.hpp"
+-
+-#include "io/JsonObject.hpp"
+-
+-#include "Memory.hpp"
+-
+-namespace Tungsten {
+-
+-ErlangTransmittance::ErlangTransmittance()
+-: _lambda(5.0f)
+-{
+-}
+-
+-void ErlangTransmittance::fromJson(JsonPtr value, const Scene &scene)
+-{
+-    Transmittance::fromJson(value, scene);
+-    value.getField("rate", _lambda);
+-}
+-
+-rapidjson::Value ErlangTransmittance::toJson(Allocator &allocator) const
+-{
+-    return JsonObject{Transmittance::toJson(allocator), allocator,
+-        "type", "erlang",
+-        "rate", _lambda,
+-    };
+-}
+-
+-Vec3f ErlangTransmittance::surfaceSurface(const Vec3f &tau) const
+-{
+-    return 0.5f*std::exp(-_lambda*tau)*(2.0f + _lambda*tau);
+-}
+-Vec3f ErlangTransmittance::surfaceMedium(const Vec3f &tau) const
+-{
+-    return mediumSurface(tau)*_lambda*0.5f;
+-}
+-Vec3f ErlangTransmittance::mediumSurface(const Vec3f &tau) const
+-{
+-    return std::exp(-_lambda*tau)*(1.0f + _lambda*tau);
+-}
+-Vec3f ErlangTransmittance::mediumMedium(const Vec3f &tau) const
+-{
+-    return sqr(_lambda)*tau*std::exp(-_lambda*tau);
+-}
+-
+-float ErlangTransmittance::sigmaBar() const
+-{
+-    return _lambda*0.5f;
+-}
+-
+-float ErlangTransmittance::sampleSurface(PathSampleGenerator &sampler) const
+-{
+-    float xi = sampler.next1D();
+-    float x = 0.5f;
+-    for (int i = 0; i < 10; ++i) {
+-        x += (xi - (1.0f - surfaceSurface(Vec3f(x))[0]))/surfaceMedium(Vec3f(x))[0];
+-        x = max(x, 0.0f);
+-    }
+-    return x;
+-}
+-float ErlangTransmittance::sampleMedium(PathSampleGenerator &sampler) const
+-{
+-    return -1.0f/_lambda*std::log(sampler.next1D()*sampler.next1D());
+-}
+-
+-}
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/ErlangTransmittance.hpp ../methods/2016_bitterli_nfor/src/core/transmittances/ErlangTransmittance.hpp
+--- 2016_bitterli_nfor/src/core/transmittances/ErlangTransmittance.hpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/ErlangTransmittance.hpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,34 +0,0 @@
+-#ifndef ErlangTransmittance_HPP_
+-#define ErlangTransmittance_HPP_
+-
+-#include "Transmittance.hpp"
+-
+-namespace Tungsten {
+-
+-class ErlangTransmittance : public Transmittance
+-{
+-    float _lambda;
+-
+-public:
+-    ErlangTransmittance();
+-
+-    virtual void fromJson(JsonPtr value, const Scene &scene) override;
+-    virtual rapidjson::Value toJson(Allocator &allocator) const override;
+-
+-    virtual Vec3f surfaceSurface(const Vec3f &tau) const override final;
+-    virtual Vec3f surfaceMedium(const Vec3f &tau) const override final;
+-    virtual Vec3f mediumSurface(const Vec3f &tau) const override final;
+-    virtual Vec3f mediumMedium(const Vec3f &tau) const override final;
+-
+-    virtual float sigmaBar() const override final;
+-
+-    virtual float sampleSurface(PathSampleGenerator &sampler) const override final;
+-    virtual float sampleMedium(PathSampleGenerator &sampler) const override final;
+-};
+-
+-
+-}
+-
+-
+-
+-#endif /* ErlangTransmittance_HPP_ */
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/ExponentialTransmittance.cpp ../methods/2016_bitterli_nfor/src/core/transmittances/ExponentialTransmittance.cpp
+--- 2016_bitterli_nfor/src/core/transmittances/ExponentialTransmittance.cpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/ExponentialTransmittance.cpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,57 +0,0 @@
+-#include "ExponentialTransmittance.hpp"
+-
+-#include "sampling/UniformPathSampler.hpp"
+-
+-#include "math/MathUtil.hpp"
+-#include "math/FastMath.hpp"
+-
+-#include "io/JsonObject.hpp"
+-
+-#include "Memory.hpp"
+-
+-namespace Tungsten {
+-
+-void ExponentialTransmittance::fromJson(JsonPtr value, const Scene &scene)
+-{
+-    Transmittance::fromJson(value, scene);
+-}
+-
+-rapidjson::Value ExponentialTransmittance::toJson(Allocator &allocator) const
+-{
+-    return JsonObject{Transmittance::toJson(allocator), allocator,
+-        "type", "exponential",
+-    };
+-}
+-
+-Vec3f ExponentialTransmittance::surfaceSurface(const Vec3f &tau) const
+-{
+-    return FastMath::exp(-tau);
+-}
+-Vec3f ExponentialTransmittance::surfaceMedium(const Vec3f &tau) const
+-{
+-    return FastMath::exp(-tau);
+-}
+-Vec3f ExponentialTransmittance::mediumSurface(const Vec3f &tau) const
+-{
+-    return FastMath::exp(-tau);
+-}
+-Vec3f ExponentialTransmittance::mediumMedium(const Vec3f &tau) const
+-{
+-    return FastMath::exp(-tau);
+-}
+-
+-float ExponentialTransmittance::sigmaBar() const
+-{
+-    return 1.0f;
+-}
+-
+-float ExponentialTransmittance::sampleSurface(PathSampleGenerator &sampler) const
+-{
+-    return -std::log(1.0f - sampler.next1D());
+-}
+-float ExponentialTransmittance::sampleMedium(PathSampleGenerator &sampler) const
+-{
+-    return -std::log(1.0f - sampler.next1D());
+-}
+-
+-}
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/ExponentialTransmittance.hpp ../methods/2016_bitterli_nfor/src/core/transmittances/ExponentialTransmittance.hpp
+--- 2016_bitterli_nfor/src/core/transmittances/ExponentialTransmittance.hpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/ExponentialTransmittance.hpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,32 +0,0 @@
+-#ifndef EXPONENTIALTRANSMITTANCE_HPP_
+-#define EXPONENTIALTRANSMITTANCE_HPP_
+-
+-#include "Transmittance.hpp"
+-
+-namespace Tungsten {
+-
+-class ExponentialTransmittance : public Transmittance
+-{
+-public:
+-    ExponentialTransmittance() = default;
+-
+-    virtual void fromJson(JsonPtr value, const Scene &scene) override;
+-    virtual rapidjson::Value toJson(Allocator &allocator) const override;
+-
+-    virtual Vec3f surfaceSurface(const Vec3f &tau) const override final;
+-    virtual Vec3f surfaceMedium(const Vec3f &tau) const override final;
+-    virtual Vec3f mediumSurface(const Vec3f &tau) const override final;
+-    virtual Vec3f mediumMedium(const Vec3f &tau) const override final;
+-
+-    virtual float sigmaBar() const override final;
+-
+-    virtual float sampleSurface(PathSampleGenerator &sampler) const override final;
+-    virtual float sampleMedium(PathSampleGenerator &sampler) const override final;
+-};
+-
+-
+-}
+-
+-
+-
+-#endif /* EXPONENTIALTRANSMITTANCE_HPP_ */
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/InterpolatedTransmittance.cpp ../methods/2016_bitterli_nfor/src/core/transmittances/InterpolatedTransmittance.cpp
+--- 2016_bitterli_nfor/src/core/transmittances/InterpolatedTransmittance.cpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/InterpolatedTransmittance.cpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,85 +0,0 @@
+-#include "InterpolatedTransmittance.hpp"
+-
+-#include "ExponentialTransmittance.hpp"
+-#include "LinearTransmittance.hpp"
+-#include "ErlangTransmittance.hpp"
+-
+-#include "sampling/UniformPathSampler.hpp"
+-
+-#include "math/MathUtil.hpp"
+-
+-#include "io/JsonObject.hpp"
+-#include "io/Scene.hpp"
+-
+-#include "Memory.hpp"
+-
+-namespace Tungsten {
+-
+-InterpolatedTransmittance::InterpolatedTransmittance()
+-: _trA(std::make_shared<LinearTransmittance>()),
+-  _trB(std::make_shared<ErlangTransmittance>()),
+-  _u(0.5f)
+-{
+-}
+-
+-void InterpolatedTransmittance::fromJson(JsonPtr value, const Scene &scene)
+-{
+-    Transmittance::fromJson(value, scene);
+-    if (auto m = value["tr_a"]) _trA = scene.fetchTransmittance(m);
+-    if (auto m = value["tr_b"]) _trB = scene.fetchTransmittance(m);
+-    value.getField("ratio", _u);
+-}
+-
+-rapidjson::Value InterpolatedTransmittance::toJson(Allocator &allocator) const
+-{
+-    return JsonObject{Transmittance::toJson(allocator), allocator,
+-        "type", "interpolated",
+-        "tr_a", _trA->toJson(allocator),
+-        "tr_b", _trB->toJson(allocator),
+-        "ratio", _u
+-    };
+-}
+-
+-Vec3f InterpolatedTransmittance::surfaceSurface(const Vec3f &tau) const
+-{
+-    return sigmaBar()*lerp(_trA->surfaceSurface(tau)/_trA->sigmaBar(), _trB->surfaceSurface(tau)/_trB->sigmaBar(), _u);
+-}
+-Vec3f InterpolatedTransmittance::surfaceMedium(const Vec3f &tau) const
+-{
+-    return mediumSurface(tau)*sigmaBar();
+-}
+-Vec3f InterpolatedTransmittance::mediumSurface(const Vec3f &tau) const
+-{
+-    return lerp(_trA->mediumSurface(tau), _trB->mediumSurface(tau), _u);
+-}
+-Vec3f InterpolatedTransmittance::mediumMedium(const Vec3f &tau) const
+-{
+-    Vec3f pdfA = _trA->mediumMedium(tau);
+-    Vec3f pdfB = _trB->mediumMedium(tau);
+-    Vec3f result;
+-    for (int i = 0; i < 3; ++i) {
+-        bool diracA = _trA->isDirac() && pdfA[i] > 0.0f;
+-        bool diracB = _trB->isDirac() && pdfB[i] > 0.0f;
+-        if (diracA ^ diracB)
+-            result[i] = diracA ? pdfA[i] : pdfB[i];
+-        else
+-            result[i] = lerp(pdfA[i], pdfB[i], _u);
+-    }
+-    return result;
+-}
+-
+-float InterpolatedTransmittance::sigmaBar() const
+-{
+-    return 1.0f/lerp(1.0f/_trA->sigmaBar(), 1.0f/_trB->sigmaBar(), _u);
+-}
+-
+-float InterpolatedTransmittance::sampleSurface(PathSampleGenerator &sampler) const
+-{
+-    return sampler.nextBoolean(_u) ? _trB->sampleSurface(sampler) : _trA->sampleSurface(sampler);
+-}
+-float InterpolatedTransmittance::sampleMedium(PathSampleGenerator &sampler) const
+-{
+-    return sampler.nextBoolean(_u) ? _trB->sampleMedium(sampler) : _trA->sampleMedium(sampler);
+-}
+-
+-}
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/InterpolatedTransmittance.hpp ../methods/2016_bitterli_nfor/src/core/transmittances/InterpolatedTransmittance.hpp
+--- 2016_bitterli_nfor/src/core/transmittances/InterpolatedTransmittance.hpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/InterpolatedTransmittance.hpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,39 +0,0 @@
+-#ifndef INTERPOLATEDTRANSMITTANCE_HPP_
+-#define INTERPOLATEDTRANSMITTANCE_HPP_
+-
+-#include "Transmittance.hpp"
+-
+-#include <vector>
+-#include <memory>
+-
+-namespace Tungsten {
+-
+-class InterpolatedTransmittance : public Transmittance
+-{
+-    std::shared_ptr<Transmittance> _trA;
+-    std::shared_ptr<Transmittance> _trB;
+-    float _u;
+-
+-public:
+-    InterpolatedTransmittance();
+-
+-    virtual void fromJson(JsonPtr value, const Scene &scene) override;
+-    virtual rapidjson::Value toJson(Allocator &allocator) const override;
+-
+-    virtual Vec3f surfaceSurface(const Vec3f &tau) const override final;
+-    virtual Vec3f surfaceMedium(const Vec3f &tau) const override final;
+-    virtual Vec3f mediumSurface(const Vec3f &tau) const override final;
+-    virtual Vec3f mediumMedium(const Vec3f &tau) const override final;
+-
+-    virtual float sigmaBar() const override final;
+-
+-    virtual float sampleSurface(PathSampleGenerator &sampler) const override final;
+-    virtual float sampleMedium(PathSampleGenerator &sampler) const override final;
+-};
+-
+-
+-}
+-
+-
+-
+-#endif /* INTERPOLATEDTRANSMITTANCE_HPP_ */
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/LinearTransmittance.cpp ../methods/2016_bitterli_nfor/src/core/transmittances/LinearTransmittance.cpp
+--- 2016_bitterli_nfor/src/core/transmittances/LinearTransmittance.cpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/LinearTransmittance.cpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,79 +0,0 @@
+-#include "LinearTransmittance.hpp"
+-
+-#include "sampling/UniformPathSampler.hpp"
+-
+-#include "math/MathUtil.hpp"
+-
+-#include "io/JsonObject.hpp"
+-
+-#include "Memory.hpp"
+-
+-namespace Tungsten {
+-
+-LinearTransmittance::LinearTransmittance()
+-: _maxT(1.0f)
+-{
+-}
+-
+-void LinearTransmittance::fromJson(JsonPtr value, const Scene &scene)
+-{
+-    Transmittance::fromJson(value, scene);
+-    value.getField("max_t", _maxT);
+-}
+-
+-rapidjson::Value LinearTransmittance::toJson(Allocator &allocator) const
+-{
+-    return JsonObject{Transmittance::toJson(allocator), allocator,
+-        "type", "linear",
+-        "max_t", _maxT
+-    };
+-}
+-
+-Vec3f LinearTransmittance::surfaceSurface(const Vec3f &tau) const
+-{
+-    return 1.0f - min(tau/_maxT, Vec3f(1.0f));
+-}
+-Vec3f LinearTransmittance::surfaceMedium(const Vec3f &tau) const
+-{
+-    Vec3f result(1.0f/_maxT);
+-    for (int i = 0; i < 3; ++i)
+-        if (tau[i] > _maxT)
+-            result[i] = 0.0f;
+-    return result;
+-}
+-Vec3f LinearTransmittance::mediumSurface(const Vec3f &tau) const
+-{
+-    Vec3f result(1.0f);
+-    for (int i = 0; i < 3; ++i)
+-        if (tau[i] > _maxT)
+-            result[i] = 0.0f;
+-    return result;
+-}
+-Vec3f LinearTransmittance::mediumMedium(const Vec3f &tau) const
+-{
+-    Vec3f result;
+-    for (int i = 0; i < 3; ++i)
+-        result[i] = std::abs(tau[i] - _maxT) < 1e-3f ? 1.0f : 0.0f;
+-    return result;
+-}
+-
+-float LinearTransmittance::sigmaBar() const
+-{
+-    return 1.0f/_maxT;
+-}
+-
+-bool LinearTransmittance::isDirac() const
+-{
+-    return true;
+-}
+-
+-float LinearTransmittance::sampleSurface(PathSampleGenerator &sampler) const
+-{
+-    return _maxT*sampler.next1D();
+-}
+-float LinearTransmittance::sampleMedium(PathSampleGenerator &/*sampler*/) const
+-{
+-    return _maxT;
+-}
+-
+-}
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/LinearTransmittance.hpp ../methods/2016_bitterli_nfor/src/core/transmittances/LinearTransmittance.hpp
+--- 2016_bitterli_nfor/src/core/transmittances/LinearTransmittance.hpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/LinearTransmittance.hpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,33 +0,0 @@
+-#ifndef LINEARTRANSMITTANCE_HPP_
+-#define LINEARTRANSMITTANCE_HPP_
+-
+-#include "Transmittance.hpp"
+-
+-namespace Tungsten {
+-
+-class LinearTransmittance : public Transmittance
+-{
+-    float _maxT;
+-
+-public:
+-    LinearTransmittance();
+-
+-    virtual void fromJson(JsonPtr value, const Scene &scene) override;
+-    virtual rapidjson::Value toJson(Allocator &allocator) const override;
+-
+-    virtual Vec3f surfaceSurface(const Vec3f &tau) const override final;
+-    virtual Vec3f surfaceMedium(const Vec3f &tau) const override final;
+-    virtual Vec3f mediumSurface(const Vec3f &tau) const override final;
+-    virtual Vec3f mediumMedium(const Vec3f &tau) const override final;
+-
+-    virtual bool isDirac() const override final;
+-
+-    virtual float sigmaBar() const override final;
+-
+-    virtual float sampleSurface(PathSampleGenerator &sampler) const override final;
+-    virtual float sampleMedium(PathSampleGenerator &sampler) const override final;
+-};
+-
+-}
+-
+-#endif /* LINEARTRANSMITTANCE_HPP_ */
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/PulseTransmittance.cpp ../methods/2016_bitterli_nfor/src/core/transmittances/PulseTransmittance.cpp
+--- 2016_bitterli_nfor/src/core/transmittances/PulseTransmittance.cpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/PulseTransmittance.cpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,108 +0,0 @@
+-#include "PulseTransmittance.hpp"
+-
+-#include "sampling/UniformPathSampler.hpp"
+-
+-#include "math/MathUtil.hpp"
+-
+-#include "io/JsonObject.hpp"
+-#include "io/FileUtils.hpp"
+-
+-#include "Memory.hpp"
+-
+-namespace Tungsten {
+-
+-PulseTransmittance::PulseTransmittance()
+-: _a(0.0f),
+-  _b(1.0f),
+-  _numPulses(4)
+-{
+-}
+-
+-void PulseTransmittance::fromJson(JsonPtr value, const Scene &scene)
+-{
+-    Transmittance::fromJson(value, scene);
+-    value.getField("min", _a);
+-    value.getField("max", _b);
+-    value.getField("num_pulses", _numPulses);
+-}
+-
+-rapidjson::Value PulseTransmittance::toJson(Allocator &allocator) const
+-{
+-    return JsonObject{Transmittance::toJson(allocator), allocator,
+-        "type", "pulse",
+-        "min", _a,
+-        "max", _b,
+-        "num_pulses", _numPulses,
+-    };
+-}
+-
+-bool PulseTransmittance::isDirac() const
+-{
+-    return true;
+-}
+-
+-Vec3f PulseTransmittance::surfaceSurface(const Vec3f &tau) const
+-{
+-    Vec3f idxF = clamp(float(_numPulses)*(tau - _a)/(_b - _a) + 0.5f, Vec3f(0.0f), Vec3f(_numPulses));
+-    Vec3i idx = Vec3i(idxF);
+-
+-    Vec3f height = Vec3f(_numPulses - idx)/float(_numPulses);
+-
+-    Vec3f cellIntegral = height*(idxF - Vec3f(idx));
+-    for (int i = 0; i < 3; ++i) {
+-        if (idx[i] > 0)
+-            cellIntegral[i] += (idx[i] - 0.5f) - (idx[i]*(idx[i] - 1))/(2.0f*_numPulses);
+-        else
+-            cellIntegral[i] -= 0.5f;
+-    }
+-
+-    return 1.0f - (2.0f/_numPulses)*cellIntegral;
+-}
+-Vec3f PulseTransmittance::surfaceMedium(const Vec3f &tau) const
+-{
+-    return 2.0f/(_b - _a)*mediumSurface(tau);
+-}
+-Vec3f PulseTransmittance::mediumSurface(const Vec3f &tau) const
+-{
+-    Vec3i idx = clamp(Vec3i(float(_numPulses)*(tau - _a)/(_b - _a) + 0.5f), Vec3i(0), Vec3i(_numPulses));
+-    return 1.0f - Vec3f(idx)/float(_numPulses);
+-}
+-Vec3f PulseTransmittance::mediumMedium(const Vec3f &tau) const
+-{
+-    Vec3f idxF = clamp(float(_numPulses)*(tau - _a)/(_b - _a), Vec3f(0.0f), Vec3f(_numPulses));
+-    Vec3i idx = Vec3i(idxF);
+-    return (1.0f/_numPulses)*Vec3f(
+-        std::abs(idxF[0] - idx[0] - 0.5f) < 1e-3f ? 1.0f : 0.0f,
+-        std::abs(idxF[1] - idx[1] - 0.5f) < 1e-3f ? 1.0f : 0.0f,
+-        std::abs(idxF[2] - idx[2] - 0.5f) < 1e-3f ? 1.0f : 0.0f
+-    );
+-}
+-
+-float PulseTransmittance::sigmaBar() const
+-{
+-    return 2.0f/(_b - _a);
+-}
+-
+-float PulseTransmittance::sampleSurface(PathSampleGenerator &sampler) const
+-{
+-    float xi = sampler.next1D()*_numPulses*0.5f;
+-    float delta = 1.0f/_numPulses;
+-
+-    for (int i = 0; i < _numPulses; ++i) {
+-        float h0 = 1.0f - (i + 0.0f)*delta;
+-        float h1 = 1.0f - (i + 1.0f)*delta;
+-        xi -= h0*0.5f;
+-        if (xi < 0.0f)
+-            return _a + (i + 0.0f + 0.5f*sampler.next1D())*(_b - _a)*delta;
+-        xi -= h1*0.5f;
+-        if (xi < 0.0f)
+-            return _a + (i + 0.5f + 0.5f*sampler.next1D())*(_b - _a)*delta;
+-    }
+-    return 0.0f;
+-}
+-float PulseTransmittance::sampleMedium(PathSampleGenerator &sampler) const
+-{
+-    return _a + (0.5f + int(sampler.next1D()*_numPulses))/float(_numPulses)*(_b - _a);
+-}
+-
+-}
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/PulseTransmittance.hpp ../methods/2016_bitterli_nfor/src/core/transmittances/PulseTransmittance.hpp
+--- 2016_bitterli_nfor/src/core/transmittances/PulseTransmittance.hpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/PulseTransmittance.hpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,37 +0,0 @@
+-#ifndef PULSETRANSMITTANCE_HPP_
+-#define PULSETRANSMITTANCE_HPP_
+-
+-#include "Transmittance.hpp"
+-
+-namespace Tungsten {
+-
+-class PulseTransmittance : public Transmittance
+-{
+-    float _a, _b;
+-    int _numPulses;
+-
+-public:
+-    PulseTransmittance();
+-
+-    virtual void fromJson(JsonPtr value, const Scene &scene) override;
+-    virtual rapidjson::Value toJson(Allocator &allocator) const override;
+-
+-    virtual bool isDirac() const override final;
+-
+-    virtual Vec3f surfaceSurface(const Vec3f &tau) const override final;
+-    virtual Vec3f surfaceMedium(const Vec3f &tau) const override final;
+-    virtual Vec3f mediumSurface(const Vec3f &tau) const override final;
+-    virtual Vec3f mediumMedium(const Vec3f &tau) const override final;
+-
+-    virtual float sigmaBar() const override final;
+-
+-    virtual float sampleSurface(PathSampleGenerator &sampler) const override final;
+-    virtual float sampleMedium(PathSampleGenerator &sampler) const override final;
+-};
+-
+-
+-}
+-
+-
+-
+-#endif /* PULSETRANSMITTANCE_HPP_ */
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/QuadraticTransmittance.cpp ../methods/2016_bitterli_nfor/src/core/transmittances/QuadraticTransmittance.cpp
+--- 2016_bitterli_nfor/src/core/transmittances/QuadraticTransmittance.cpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/QuadraticTransmittance.cpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,68 +0,0 @@
+-#include "QuadraticTransmittance.hpp"
+-
+-#include "sampling/UniformPathSampler.hpp"
+-
+-#include "math/MathUtil.hpp"
+-
+-#include "io/JsonObject.hpp"
+-
+-#include "Memory.hpp"
+-
+-namespace Tungsten {
+-
+-QuadraticTransmittance::QuadraticTransmittance()
+-: _maxT(0.75f)
+-{
+-}
+-
+-void QuadraticTransmittance::fromJson(JsonPtr value, const Scene &scene)
+-{
+-    Transmittance::fromJson(value, scene);
+-    value.getField("max_t", _maxT);
+-}
+-
+-rapidjson::Value QuadraticTransmittance::toJson(Allocator &allocator) const
+-{
+-    return JsonObject{Transmittance::toJson(allocator), allocator,
+-        "type", "quadratic",
+-        "max_t", _maxT
+-    };
+-}
+-
+-Vec3f QuadraticTransmittance::surfaceSurface(const Vec3f &tau) const
+-{
+-    Vec3f t = min(tau/_maxT, Vec3f(1.0f));
+-    return 1.0f - 2.0f*t + t*t;
+-}
+-Vec3f QuadraticTransmittance::surfaceMedium(const Vec3f &tau) const
+-{
+-    return (2.0f/_maxT)*(1.0f - min(tau/_maxT, Vec3f(1.0f)));
+-}
+-Vec3f QuadraticTransmittance::mediumSurface(const Vec3f &tau) const
+-{
+-    return 1.0f - min(tau/_maxT, Vec3f(1.0f));
+-}
+-Vec3f QuadraticTransmittance::mediumMedium(const Vec3f &tau) const
+-{
+-    Vec3f result(1.0f/_maxT);
+-    for (int i = 0; i < 3; ++i)
+-        if (tau[i] > _maxT)
+-            result[i] = 0.0f;
+-    return result;
+-}
+-
+-float QuadraticTransmittance::sigmaBar() const
+-{
+-    return 2.0f/_maxT;
+-}
+-
+-float QuadraticTransmittance::sampleSurface(PathSampleGenerator &sampler) const
+-{
+-    return _maxT*(1.0f - std::sqrt(1.0f - sampler.next1D()));
+-}
+-float QuadraticTransmittance::sampleMedium(PathSampleGenerator &sampler) const
+-{
+-    return _maxT*sampler.next1D();
+-}
+-
+-}
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/QuadraticTransmittance.hpp ../methods/2016_bitterli_nfor/src/core/transmittances/QuadraticTransmittance.hpp
+--- 2016_bitterli_nfor/src/core/transmittances/QuadraticTransmittance.hpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/QuadraticTransmittance.hpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,31 +0,0 @@
+-#ifndef QuadraticTransmittance_HPP_
+-#define QuadraticTransmittance_HPP_
+-
+-#include "Transmittance.hpp"
+-
+-namespace Tungsten {
+-
+-class QuadraticTransmittance : public Transmittance
+-{
+-    float _maxT;
+-
+-public:
+-    QuadraticTransmittance();
+-
+-    virtual void fromJson(JsonPtr value, const Scene &scene) override;
+-    virtual rapidjson::Value toJson(Allocator &allocator) const override;
+-
+-    virtual Vec3f surfaceSurface(const Vec3f &tau) const override final;
+-    virtual Vec3f surfaceMedium(const Vec3f &tau) const override final;
+-    virtual Vec3f mediumSurface(const Vec3f &tau) const override final;
+-    virtual Vec3f mediumMedium(const Vec3f &tau) const override final;
+-
+-    virtual float sigmaBar() const override final;
+-
+-    virtual float sampleSurface(PathSampleGenerator &sampler) const override final;
+-    virtual float sampleMedium(PathSampleGenerator &sampler) const override final;
+-};
+-
+-}
+-
+-#endif /* QuadraticTransmittance_HPP_ */
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/TransmittanceFactory.cpp ../methods/2016_bitterli_nfor/src/core/transmittances/TransmittanceFactory.cpp
+--- 2016_bitterli_nfor/src/core/transmittances/TransmittanceFactory.cpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/TransmittanceFactory.cpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,26 +0,0 @@
+-#include "TransmittanceFactory.hpp"
+-#include "DoubleExponentialTransmittance.hpp"
+-#include "DavisWeinsteinTransmittance.hpp"
+-#include "InterpolatedTransmittance.hpp"
+-#include "ExponentialTransmittance.hpp"
+-#include "QuadraticTransmittance.hpp"
+-#include "ErlangTransmittance.hpp"
+-#include "LinearTransmittance.hpp"
+-#include "DavisTransmittance.hpp"
+-#include "PulseTransmittance.hpp"
+-
+-namespace Tungsten {
+-
+-DEFINE_STRINGABLE_ENUM(TransmittanceFactory, "transmittance", ({
+-    {"double_exponential", std::make_shared<DoubleExponentialTransmittance>},
+-    {"exponential", std::make_shared<ExponentialTransmittance>},
+-    {"quadratic", std::make_shared<QuadraticTransmittance>},
+-    {"linear", std::make_shared<LinearTransmittance>},
+-    {"erlang", std::make_shared<ErlangTransmittance>},
+-    {"davis", std::make_shared<DavisTransmittance>},
+-    {"davis_weinstein", std::make_shared<DavisWeinsteinTransmittance>},
+-    {"pulse", std::make_shared<PulseTransmittance>},
+-    {"interpolated", std::make_shared<InterpolatedTransmittance>},
+-}))
+-
+-}
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/TransmittanceFactory.hpp ../methods/2016_bitterli_nfor/src/core/transmittances/TransmittanceFactory.hpp
+--- 2016_bitterli_nfor/src/core/transmittances/TransmittanceFactory.hpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/TransmittanceFactory.hpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,17 +0,0 @@
+-#ifndef TRANSMITTANCEFACTORY_HPP_
+-#define TRANSMITTANCEFACTORY_HPP_
+-
+-#include "StringableEnum.hpp"
+-
+-#include <functional>
+-#include <memory>
+-
+-namespace Tungsten {
+-
+-class Transmittance;
+-
+-typedef StringableEnum<std::function<std::shared_ptr<Transmittance>()>> TransmittanceFactory;
+-
+-}
+-
+-#endif /* TRANSMITTANCEFACTORY_HPP_ */
+diff -uarN 2016_bitterli_nfor/src/core/transmittances/Transmittance.hpp ../methods/2016_bitterli_nfor/src/core/transmittances/Transmittance.hpp
+--- 2016_bitterli_nfor/src/core/transmittances/Transmittance.hpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/core/transmittances/Transmittance.hpp	1969-12-31 16:00:00.000000000 -0800
+@@ -1,62 +0,0 @@
+-#ifndef TRANSMITTANCE_HPP_
+-#define TRANSMITTANCE_HPP_
+-
+-#include "sampling/PathSampleGenerator.hpp"
+-
+-#include "math/Vec.hpp"
+-
+-#include "io/JsonSerializable.hpp"
+-
+-#include "StringableEnum.hpp"
+-
+-#include <algorithm>
+-#include <array>
+-
+-namespace Tungsten {
+-
+-class Transmittance : public JsonSerializable
+-{
+-public:
+-    virtual ~Transmittance() {}
+-
+-    inline Vec3f eval(const Vec3f &tau, bool startOnSurface, bool endOnSurface) const
+-    {
+-        if (startOnSurface && endOnSurface)
+-            return surfaceSurface(tau);
+-        else if (!startOnSurface && !endOnSurface)
+-            return mediumMedium(tau)/sigmaBar();
+-        else
+-            return mediumSurface(tau);
+-    }
+-    inline float sample(PathSampleGenerator &sampler, bool startOnSurface) const
+-    {
+-        return startOnSurface ? sampleSurface(sampler) : sampleMedium(sampler);
+-    }
+-    inline Vec3f surfaceProbability(const Vec3f &tau, bool startOnSurface) const
+-    {
+-        return startOnSurface ? surfaceSurface(tau) : mediumSurface(tau);
+-    }
+-    inline Vec3f mediumPdf(const Vec3f &tau, bool startOnSurface) const
+-    {
+-        return startOnSurface ? surfaceMedium(tau) : mediumMedium(tau);
+-    }
+-
+-    virtual bool isDirac() const // Returns true if mediumMedium is a dirac/sum of dirac deltas
+-    {
+-        return false;
+-    }
+-
+-    virtual Vec3f surfaceSurface(const Vec3f &tau) const = 0;
+-    virtual Vec3f surfaceMedium(const Vec3f &tau) const = 0;
+-    virtual Vec3f mediumSurface(const Vec3f &tau) const = 0;
+-    virtual Vec3f mediumMedium(const Vec3f &tau) const = 0;
+-
+-    virtual float sigmaBar() const = 0; // Returns surfaceMedium(x)/mediumSurface(x) (i.e. identical to surfaceMedium(0))
+-
+-    virtual float sampleSurface(PathSampleGenerator &sampler) const = 0;
+-    virtual float sampleMedium(PathSampleGenerator &sampler) const = 0;
+-};
+-
+-}
+-
+-#endif /* TRANSMITTANCE_HPP_ */
+diff -uarN 2016_bitterli_nfor/src/core/Version.hpp ../methods/2016_bitterli_nfor/src/core/Version.hpp
+--- 2016_bitterli_nfor/src/core/Version.hpp	2019-09-11 15:47:11.248791651 -0700
++++ ../methods/2016_bitterli_nfor/src/core/Version.hpp	2019-09-11 11:31:25.358895516 -0700
+@@ -3,7 +3,7 @@
+ 
+ #define VERSION_MAJOR 0
+ #define VERSION_MINOR 2
+-#define VERSION_PATCH 2
++#define VERSION_PATCH 1
+ 
+ #define _QUOTE(S) #S
+ #define _STR(S) _QUOTE(S)
+diff -uarN 2016_bitterli_nfor/src/denoiser/denoiser.cpp ../methods/2016_bitterli_nfor/src/denoiser/denoiser.cpp
+--- 2016_bitterli_nfor/src/denoiser/denoiser.cpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/denoiser/denoiser.cpp	2019-09-11 11:31:25.370895624 -0700
+@@ -35,6 +35,57 @@
+ typedef RenderBuffer<float> RenderBufferF;
+ typedef RenderBuffer<Vec3f> RenderBuffer3f;
+ 
++Pixmap3f add_pixmaps(Pixmap3f &a, Pixmap3f &b) {
++    int w = a.w();
++    int h = b.h();
++    Pixmap3f out(w, h);
++    for (int i = 0; i < w*h; ++i) {
++        for (int c = 0; c < 3; ++c) {
++            out[i][c] = a[i][c] + b[i][c];
++        }
++    }
++    return out;
++}
++
++float logeps = 1.0f;
++Pixmap3f log_transform(Pixmap3f &linear) {
++    int w = linear.w();
++    int h = linear.h();
++    Pixmap3f out(w, h);
++    for (int i = 0; i < w*h; ++i) {
++        for (int c = 0; c < 3; ++c) {
++            out[i][c] = std::log(logeps + linear[i][c]);
++        }
++    }
++    return out;
++}
++
++Pixmap3f exp_transform(Pixmap3f &logged) {
++    int w = logged.w();
++    int h = logged.h();
++    Pixmap3f out(w, h);
++    for (int i = 0; i < w*h; ++i) {
++        for (int c = 0; c < 3; ++c) {
++            out[i][c] = std::exp(logged[i][c]) - logeps;
++        }
++    }
++    return out;
++}
++
++Pixmap3f log_transform_var(Pixmap3f &linear, Pixmap3f &var) {
++    printf("log transforming var\n");
++    int w = linear.w();
++    int h = linear.h();
++    Pixmap3f out(w, h);
++    for (int i = 0; i < w*h; ++i) {
++        for (int c = 0; c < 3; ++c) {
++            out[i][c] = var[i][c] / ((logeps+linear[i][c])*(logeps+linear[i][c]));
++        }
++    }
++    return out;
++}
++
++
+ Pixmap3f nforDenoiser(RenderBuffer3f image, std::vector<RenderBufferF> features)
+ {
+     int w = image.buffer->w(), h = image.buffer->h();
+@@ -45,6 +96,7 @@
+     std::vector<PixmapF> filteredFeaturesB(features.size());
+     SimdNlMeans featureFilter;
+     for (size_t i = 0; i < features.size(); ++i) {
++        printf("setting feature %lu to filter\n", i);
+         featureFilter.addBuffer(filteredFeaturesA[i], *features[i].bufferA, *features[i].bufferB, *features[i].bufferVariance);
+         featureFilter.addBuffer(filteredFeaturesB[i], *features[i].bufferB, *features[i].bufferA, *features[i].bufferVariance);
+     }
+@@ -52,6 +104,12 @@
+     features.clear();
+     printTimestampedLog("Prefiltering done");
+ 
++    // // TODO(mgharbi)
++    // for (size_t i = 0; i < filteredFeaturesA.size(); ++i) {
++    //     filteredFeaturesA[i].save(Path("filteredA_" + std::to_string(i) + ".exr"), false);
++    //     filteredFeaturesB[i].save(Path("filteredB_" + std::to_string(i) + ".exr"), false);
++    // }
++
+     // Main regression (section 5.2)
+     std::vector<Pixmap3f> filteredColorsA;
+     std::vector<Pixmap3f> filteredColorsB;
+@@ -60,9 +118,11 @@
+         printTimestampedLog(tfm::format("Beginning regression pass %d/2", mses.size() + 1));
+         // Regression pass
+         printTimestampedLog("Denosing half buffer A...");
+-        Pixmap3f filteredColorA = collaborativeRegression(*image.bufferA, *image.bufferB, filteredFeaturesB, *image.bufferVariance, 3, 9, k);
++        Pixmap3f filteredColorA = collaborativeRegression(
++                *image.bufferA, *image.bufferB, filteredFeaturesB, *image.bufferB, 3, 9, k);
+         printTimestampedLog("Denosing half buffer B...");
+-        Pixmap3f filteredColorB = collaborativeRegression(*image.bufferB, *image.bufferA, filteredFeaturesA, *image.bufferVariance, 3, 9, k);
++        Pixmap3f filteredColorB = collaborativeRegression(
++                *image.bufferB, *image.bufferA, filteredFeaturesA, *image.bufferA, 3, 9, k);
+ 
+         // MSE estimation (section 5.3)
+         printTimestampedLog("Estimating MSE...");
+@@ -82,6 +142,12 @@
+     }
+     printTimestampedLog("Regression pass done");
+ 
++    // // TODO(mgharbi)
++    // for (size_t i = 0; i < filteredColorsA.size(); ++i) {
++    //     filteredColorsA[i].save(Path("filteredColorsA_" + std::to_string(i) + ".exr"), true);
++    //     filteredColorsB[i].save(Path("filteredColorsB_" + std::to_string(i) + ".exr"), true);
++    // }
++
+     // Bandwidth selection (section 5.3)
+     // Generate selection map
+     printTimestampedLog("Generating selection maps...");
+@@ -93,6 +159,8 @@
+     // Filter selection map
+     Pixmap3f selection = nlMeans(noisySelection, *image.buffer, *image.bufferVariance, 1, 9, 1.0f, 1.0f, true);
+ 
++    selection.save(Path("selection.exr"), true);
++
+     // Apply selection map
+     Pixmap3f resultA(w, h);
+     Pixmap3f resultB(w, h);
+@@ -144,17 +212,75 @@
+     return std::move(result);
+ }
+ 
+-void loadInputBuffers(RenderBuffer3f &image, std::vector<RenderBufferF> &features, const Scene &scene)
++void loadInputBuffers(RenderBuffer3f &image, std::vector<RenderBufferF> &features, Path root, bool specular=false)
++{
++    std::vector<std::string> buffers = {"albedo", "color", "depth", "normal"};
++    for (const auto &buf : buffers) {
++
++        Path file = root + Path(buf+".exr");
++
++        if (buf == "color") {
++            if (specular) {
++                file = root + Path("specular.exr");
++            } else {
++                file = root + Path("diffuse.exr");
++            }
++        }
++
++        auto buffer = loadPixmap<Vec3f>(file, true);
++        if (buffer) {
++            std::unique_ptr<Pixmap3f> bufferVariance;
++            Path varianceFile = file.stripExtension() + "Variance" + file.extension();
++            bufferVariance = loadPixmap<Vec3f>(varianceFile);
++            std::unique_ptr<Pixmap3f> bufferA, bufferB;
++            Path fileA = file.stripExtension() + "A" + file.extension();
++            Path fileB = file.stripExtension() + "B" + file.extension();
++            bufferA = loadPixmap<Vec3f>(fileA);
++            bufferB = loadPixmap<Vec3f>(fileB);
++            std::cout << "two buffer variance " << fileA << " " << fileB << "\n";
++
++            if (buf == "color") {
++                if (specular) {
++                    *bufferVariance = log_transform_var(*buffer, *bufferVariance);
++                    *buffer = log_transform(*buffer);
++                    *bufferA = log_transform(*bufferA);
++                    *bufferB = log_transform(*bufferB);
++                } 
++                image.buffer         = std::move(buffer);
++                image.bufferA        = std::move(bufferA);
++                image.bufferB        = std::move(bufferB);
++                image.bufferVariance = std::move(bufferVariance);
++            } else {
++                bool isRgb = (buf == "normal" || buf == "albedo");
++                for (int i = 0; i < (isRgb ? 3 : 1); ++i) {
++                    features.emplace_back();
++                    if (buffer        ) features.back().buffer         = slicePixmap(*buffer        , i);
++                    if (bufferA       ) features.back().bufferA        = slicePixmap(*bufferA       , i);
++                    if (bufferB       ) features.back().bufferB        = slicePixmap(*bufferB       , i);
++                    if (bufferVariance) features.back().bufferVariance = slicePixmap(*bufferVariance, i);
++                }
++                printTimestampedLog(tfm::format("Using feature %s", buf));
++            }
++        } else {
++          std::cout << "no buffer " << file << "\n";
++        }
++    }
++}
++
++void loadInputBuffersOrg(RenderBuffer3f &image, std::vector<RenderBufferF> &features, const Scene &scene)
+ {
+     for (const auto &b : scene.rendererSettings().renderOutputs()) {
+         if (!b.hdrOutputFile().empty()) {
+             Path file = b.hdrOutputFile();
++            std::cout << "looking for path " << file << "\n";
+             auto buffer = loadPixmap<Vec3f>(file, true);
+             if (buffer) {
+                 std::unique_ptr<Pixmap3f> bufferVariance;
+                 if (b.sampleVariance()) {
+                     Path varianceFile = file.stripExtension() + "Variance" + file.extension();
+                     bufferVariance = loadPixmap<Vec3f>(varianceFile);
++                } else {
++                  printf("no var\n");
+                 }
+                 std::unique_ptr<Pixmap3f> bufferA, bufferB;
+                 if (b.twoBufferVariance()) {
+@@ -162,6 +288,8 @@
+                     Path fileB = file.stripExtension() + "B" + file.extension();
+                     bufferA = loadPixmap<Vec3f>(fileA);
+                     bufferB = loadPixmap<Vec3f>(fileB);
++                } else {
++                  printf("no two buff\n");
+                 }
+ 
+                 if (b.type() == OutputColor) {
+@@ -187,7 +315,7 @@
+ 
+ int main(int argc, const char *argv[])
+ {
+-    CliParser parser("denoiser", "[options] scene outputfile");
++    CliParser parser("denoiser", "[options] inputfolder outputfile");
+     parser.addOption('h', "help", "Prints this help text", false, OPT_HELP);
+     parser.addOption('v', "version", "Prints version information", false, OPT_VERSION);
+ 
+@@ -201,30 +329,33 @@
+         return 0;
+     }
+ 
+-    Path sceneFile(parser.operands()[0]);
++    Path inputFolder(parser.operands()[0]);
+     Path targetFile(parser.operands()[1]);
+ 
+-    printTimestampedLog(tfm::format("Loading scene '%s'...", sceneFile));
+-
+-    std::unique_ptr<Scene> scene;
+-    try {
+-        scene.reset(Scene::load(sceneFile));
+-    } catch (const JsonLoadException &e) {
+-        std::cerr << e.what() << std::endl;
+-        return 1;
+-    }
++    std::cout << "input folder " << inputFolder << "\n";
++    std::cout << "target file " << targetFile << "\n";
+ 
+     ThreadUtils::startThreads(max(ThreadUtils::idealThreadCount() - 1, 1u));
+ 
+-    RenderBuffer3f image;
++    RenderBuffer3f diffuse;
+     std::vector<RenderBufferF> features;
+-    loadInputBuffers(image, features, *scene);
++    loadInputBuffers(diffuse, features, inputFolder);
++
++    RenderBuffer3f specular;
++    std::vector<RenderBufferF> features_s;
++    loadInputBuffers(specular, features_s, inputFolder, true);
+ 
+     Timer timer;
+-    Pixmap3f result = nforDenoiser(std::move(image), std::move(features));
++    Pixmap3f result_diffuse = nforDenoiser(std::move(diffuse), std::move(features));
++    Pixmap3f result_specular = nforDenoiser(std::move(specular), std::move(features_s));
+     timer.stop();
+     printTimestampedLog(tfm::format("Filtering complete! Filter time: %.1fs", timer.elapsed()));
+ 
++    result_specular = exp_transform(result_specular);
++
++    // Add diffuse and specular
++    Pixmap3f result = add_pixmaps(result_diffuse, result_specular);
++
+     result.save(targetFile, true);
+ 
+     return 0;
+diff -uarN 2016_bitterli_nfor/src/denoiser/Regression.cpp ../methods/2016_bitterli_nfor/src/denoiser/Regression.cpp
+--- 2016_bitterli_nfor/src/denoiser/Regression.cpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/denoiser/Regression.cpp	2019-09-11 11:31:25.370895624 -0700
+@@ -68,8 +68,9 @@
+         // Precompute weights for entire tile
+         for (int dy = -R, idxW = 0; dy <= R; ++dy)
+             for (int dx = -R; dx <= R; ++dx, ++idxW)
++                // The weights depend on the color only since the features are accounted for in the regression
+                 nlMeansWeights(data.weights[idxW], data.tmpBufA, data.tmpBufB, guide, imageVariance,
+-                        srcRect, F, k, dx, dy, 2.0f);
++                               srcRect, F, k, dx, dy, 2.0f);
+ 
+         for (int y = srcRect.min().y(); y < srcRect.max().y(); ++y) {
+             for (int x = srcRect.min().x(); x < srcRect.max().x(); ++x) {
+@@ -87,14 +88,19 @@
+                         int idxP = ix + iy*w;
+                         int idx = (ix - x0) + (iy - y0)*(x1 - x0);
+ 
+-                        for (int i = 0; i < 3; ++i)
++                        for (int i = 0; i < 3; ++i) {
+                             Y(idx, i) = image[idxP][i];
++                        }
+ 
+-                        X(idx, 0) = 1.0f;
+-                        X(idx, 1) = ix - x;
+-                        X(idx, 2) = iy - y;
+-                        for (size_t i = 0; i < features.size(); ++i)
++                        // Features, encoded for the regression
++                        X(idx, 0) = 1.0f;  // constant term
++                        // X(idx, 1) = ix - x;
++                        // X(idx, 2) = iy - y;
++                        X(idx, 1) = (ix - x)/R;
++                        X(idx, 2) = (iy - y)/R;
++                        for (size_t i = 0; i < features.size(); ++i) {
+                             X(idx, i + 3) = features[i][idxP] - features[i][x + y*w];
++                        }
+ 
+                         int idxW = (ix - x + R) + (iy - y + R)*(2*R + 1);
+                         W[idx] = data.weights[idxW][Vec2i(x, y) - tile.pos];
+@@ -105,6 +111,7 @@
+                 Eigen::VectorXf wSqrt = W.cwiseSqrt();
+                 Eigen::MatrixXf denoised = X*(wSqrt.asDiagonal()*X).colPivHouseholderQr().solve(wSqrt.asDiagonal()*Y);
+ 
++
+                 // Accumulate denoised patch into image
+                 for (int iy = y0; iy < y1; ++iy) {
+                     for (int ix = x0; ix < x1; ++ix) {
+@@ -131,6 +138,7 @@
+             }
+         }
+     }
++
+     for (int j = 0; j < w*h; ++j)
+         result[j] /= resultWeights[j];
+ 
+diff -uarN 2016_bitterli_nfor/src/hdrmanip/hdrmanip.cpp ../methods/2016_bitterli_nfor/src/hdrmanip/hdrmanip.cpp
+--- 2016_bitterli_nfor/src/hdrmanip/hdrmanip.cpp	2019-09-11 15:47:11.260791759 -0700
++++ ../methods/2016_bitterli_nfor/src/hdrmanip/hdrmanip.cpp	2019-09-11 11:31:25.370895624 -0700
+@@ -144,7 +144,7 @@
+     for (int i = 0; i < w*h; ++i) {
+         float rmse = 0.0f;
+         for (int c = 0; c < 3; ++c)
+-            rmse += sqr(imgA[i*3 + c] - imgB[i*3 + c])/(sqr(imgA[i*3 + c]) + 1e-3f);
++            rmse += sqr(imgA[i*3 + c] - imgB[i*3 + c])/(imgA[i*3 + c] + 1e-3f);
+         result[i] = rmse/3.0f;
+     }
+ 
+diff -uarN 2016_bitterli_nfor/src/thirdparty/embree/common/simd/vboolf4_sse2.h ../methods/2016_bitterli_nfor/src/thirdparty/embree/common/simd/vboolf4_sse2.h
+--- 2016_bitterli_nfor/src/thirdparty/embree/common/simd/vboolf4_sse2.h	2019-09-11 15:47:11.268791831 -0700
++++ ../methods/2016_bitterli_nfor/src/thirdparty/embree/common/simd/vboolf4_sse2.h	2019-09-11 11:31:25.374895659 -0700
+@@ -38,7 +38,6 @@
+     __forceinline vboolf4& operator=( const vboolf4& other ) { v = other.v; return *this; }
+ 
+     __forceinline vboolf( const __m128  input ) : v(input) {}
+-    __forceinline vboolf( const __m128i input ) : v(_mm_castsi128_ps(input)) {}
+     __forceinline operator const __m128&( void ) const { return v; }
+     __forceinline operator const __m128i( void ) const { return _mm_castps_si128(v); }
+     __forceinline operator const __m128d( void ) const { return _mm_castps_pd(v); }
+diff -uarN 2016_bitterli_nfor/src/tungsten/Shared.hpp ../methods/2016_bitterli_nfor/src/tungsten/Shared.hpp
+--- 2016_bitterli_nfor/src/tungsten/Shared.hpp	2019-09-11 15:47:11.288792010 -0700
++++ ../methods/2016_bitterli_nfor/src/tungsten/Shared.hpp	2019-09-11 11:31:25.390895803 -0700
+@@ -35,7 +35,6 @@
+ static const int OPT_VERSION           = 2;
+ static const int OPT_HELP              = 3;
+ static const int OPT_RESTART           = 4;
+-static const int OPT_INPUT_DIRECTORY   = 11;
+ static const int OPT_OUTPUT_DIRECTORY  = 5;
+ static const int OPT_SPP               = 6;
+ static const int OPT_SEED              = 7;
+@@ -103,7 +102,6 @@
+     double _checkpointInterval;
+     double _timeout;
+     int _threadCount;
+-    Path _inputDirectory;
+     Path _outputDirectory;
+ 
+     std::unique_ptr<Scene> _scene;
+@@ -136,7 +134,6 @@
+         parser.addOption('t', "threads", "Specifies number of threads to use (default: number of cores minus one)", true, OPT_THREADS);
+         parser.addOption('r', "restart", "Ignores saved render checkpoints and starts fresh from 0 spp", false, OPT_RESTART);
+         parser.addOption('c', "checkpoint", "Specifies render time before saving a checkpoint. A value of 0 (default) disables checkpoints. Overrides the setting in the scene file", true, OPT_CHECKPOINTS);
+-        parser.addOption('i', "input-directory", "Specifies the input directory", true, OPT_INPUT_DIRECTORY);
+         parser.addOption('d', "output-directory", "Specifies the output directory. Overrides the setting in the scene file", true, OPT_OUTPUT_DIRECTORY);
+         parser.addOption('\0', "spp", "Sets the number of samples per pixel to render at. Overrides the setting in the scene file", true, OPT_SPP);
+         parser.addOption('\0', "timeout", "Specifies the maximum render time. A value of 0 (default) means unlimited. Overrides the setting in the scene file", true, OPT_TIMEOUT);
+@@ -170,12 +167,6 @@
+ 
+         ThreadUtils::startThreads(_threadCount);
+ 
+-        if (_parser.isPresent(OPT_INPUT_DIRECTORY)) {
+-            _inputDirectory = Path(_parser.param(OPT_INPUT_DIRECTORY));
+-            _inputDirectory.freezeWorkingDirectory();
+-            _inputDirectory = _inputDirectory.absolute();
+-        }
+-
+         if (_parser.isPresent(OPT_OUTPUT_DIRECTORY)) {
+             _outputDirectory = Path(_parser.param(OPT_OUTPUT_DIRECTORY));
+             _outputDirectory.freezeWorkingDirectory();
+@@ -204,10 +195,9 @@
+         }
+ 
+         writeLogLine(tfm::format("Loading scene '%s'...", currentScene));
+-        Path inputDirectory = _parser.isPresent(OPT_INPUT_DIRECTORY) ? _inputDirectory : Path(currentScene).parent();
+         try {
+             std::unique_lock<std::mutex> lock(_sceneMutex);
+-            _scene.reset(Scene::load(Path(currentScene), nullptr, &inputDirectory));
++            _scene.reset(Scene::load(Path(currentScene)));
+             _scene->loadResources();
+         } catch (const JsonLoadException &e) {
+             std::cerr << e.what() << std::endl;
+@@ -238,7 +228,7 @@
+         }
+ 
+         try {
+-            DirectoryChange context(inputDirectory);
++            DirectoryChange context(_scene->path().parent());
+ 
+             if (_parser.isPresent(OPT_OUTPUT_DIRECTORY))
+                 _scene->rendererSettings().setOutputDirectory(_outputDirectory);

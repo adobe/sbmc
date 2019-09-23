@@ -1,0 +1,10 @@
+_extras
+data
+checkpoints
+dockerfiles
+build
+rendernet_pbrt
+output
+.git
+.cache
+dist

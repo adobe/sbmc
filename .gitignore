@@ -1,0 +1,17 @@
+data
+*.pyc
+output
+.DS_Store
+!bin/data
+local_data
+local_output
+.gdb_history
+checkpoints
+hlMakefile
+oldMakefile
+trainMake
+sbmc/halide_ops.cpython-37m-x86_64-linux-gnu.so
+sbmc.egg-info/
+build
+sbmc/halide_ops.cpython-37m-darwin.so
+dist
