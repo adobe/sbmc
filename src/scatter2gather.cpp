@@ -51,7 +51,7 @@ std::map<std::string, Func> scatter2gather(
     return func_map;
 }
 
-namespace rendernet {
+namespace sbmc {
 
 /**
  * Converts sample-centered kernels into pixel-centered kernels.
@@ -92,6 +92,6 @@ public:
 
 };
 
-}  // end namespace rendernet
+}  // end namespace sbmc
 
-HALIDE_REGISTER_GENERATOR(rendernet::Scatter2GatherGenerator, scatter2gather)
+HALIDE_REGISTER_GENERATOR(sbmc::Scatter2GatherGenerator, scatter2gather)

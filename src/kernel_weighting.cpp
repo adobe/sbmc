@@ -123,7 +123,7 @@ std::map<std::string, Func> kernel_weighting_grad(
     return func_map;
 }
 
-namespace rendernet {
+namespace sbmc {
 
 class KernelWeightingForwardGenerator : public Generator<KernelWeightingForwardGenerator> {
 public:
@@ -238,10 +238,10 @@ public:
 };
 
 
-}  // end namespace rendernet
+}  // end namespace sbmc
 
 HALIDE_REGISTER_GENERATOR(
-        rendernet::KernelWeightingForwardGenerator, kernel_weighting)
+        sbmc::KernelWeightingForwardGenerator, kernel_weighting)
 
 HALIDE_REGISTER_GENERATOR(
-        rendernet::KernelWeightingGradGenerator, kernel_weighting_grad)
+        sbmc::KernelWeightingGradGenerator, kernel_weighting_grad)

@@ -5,8 +5,8 @@
 # <https://github.com/NVIDIA/nvidia-docker> or install using
 # `make nvidia_docker`
 # FROM nvidia/cuda:9.0-devel
-# FROM nvidia/cuda:10.0-cudnn7-devel-ubuntu16.04
-FROM nvidia/cuda:9.2-cudnn7-devel-ubuntu16.04
+FROM nvidia/cuda:10.0-cudnn7-devel-ubuntu16.04
+# FROM nvidia/cuda:9.2-cudnn7-devel-ubuntu16.04
 MAINTAINER Michael Gharbi <mgharbi@adobe.com>
 
 # Download and update required packages
@@ -105,7 +105,8 @@ RUN curl -o /sbmc_app/anaconda.sh -O \
 ENV PATH /sbmc_app/anaconda/bin:$PATH
 
 RUN source activate
-RUN conda install pytorch torchvision cudatoolkit=9.2 -c pytorch  
+RUN conda install pytorch torchvision cudatoolkit=10.0 -c pytorch  
+# RUN conda install pytorch torchvision cudatoolkit=9.2 -c pytorch  
 RUN pip install --upgrade pip && pip install pytest
 # -----------------------------------------------------------------------------
 
