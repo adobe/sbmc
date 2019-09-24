@@ -93,6 +93,10 @@ demo/visualize:
 	@python scripts/visualize_dataset.py $(OUTPUT)/demo/training_scenes \
 		$(OUTPUT)/demo/dataviz --spp 1
 
+geoffrey:
+	@python scripts/visualize_dataset.py $(DATA)/geoffrey_scenes \
+		$(OUTPUT)/geoffrey_scenes --spp 1
+
 # This demonstrates how to run pretrained models on .bin test scenes
 demo/denoise: demo/render_samples pretrained_models
 	@python scripts/denoise.py \

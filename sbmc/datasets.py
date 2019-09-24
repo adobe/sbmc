@@ -308,7 +308,7 @@ class TilesDataset(Dataset):
 
     def _init_feature_labels(self):
         """Set the labels for the sample data, depending config flags."""
-        self.valid_versions = [20190401]
+        self.valid_versions = [20181212, 20190401]
         self.glabels = ["aperture_radius", "focus_distance", "fov"]
 
         # Should be 27 when all features are activated
@@ -488,7 +488,8 @@ class TilesDataset(Dataset):
                 raise ValueError("Metadata do not match.")
         else:
             if field == "version" and value not in self.valid_versions:
-                raise ValueError("Version unsupported")
+                raise ValueError("Version unsupported: got %s, valid are %s" %
+                                 (value, self.valid_versions))
 
             setattr(self, field, value)
 
