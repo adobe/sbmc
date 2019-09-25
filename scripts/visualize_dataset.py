@@ -31,10 +31,10 @@ from sbmc.datasets import FullImagesDataset
 LOG = ttools.get_logger(__name__)
 
 
-def _save(output, imname, imdata):
+def _save(output, imname, imdata, dtype=np.uint8):
     os.makedirs(output, exist_ok=True)
     path = os.path.join(output, imname)
-    skio.imsave(path, ttools.utils.tensor2image(imdata))
+    skio.imsave(path, ttools.utils.tensor2image(imdata, dtype=dtype))
 
 
 def main(args):
@@ -69,7 +69,7 @@ def main(args):
             im = im.mean(1)  # average samples
             LOG.info("  %s (feature): %.2f -- %.2f", k, im.min().item(), im.max().item())
             os.makedirs(args.output, exist_ok=True)
-            _save(args.output, "%04d_%s.png" % (idx, k), im)
+            _save(args.output, "%04d_%s.png" % (idx, k), im, dtype=np.uint16)
 
 
 if __name__ == "__main__":
