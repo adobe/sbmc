@@ -32,7 +32,7 @@ docker_build:
 docker_run:  docker_build
 	@docker run --gpus all --name sbmc_cuda_app --rm \
 		-v $(OUTPUT):/sbmc_app/output \
-		-v $(DATA):/sbmc_app/data:ro \
+		-v $(DATA):/sbmc_app/data \
 		--ipc=host \
 		-p 2001:2001 \
 		-it sbmc_cuda
@@ -62,11 +62,14 @@ $(OUTPUT)/demo/test_samples/0000_0000.bin: demo_data
 
 # This demonstrates how we render .bin sample files for a training dataset 
 # using our random scene generator
-demo/generate_scenes: demo_data
+demo/generate_scenes: $(OUTPUT)/training_scenes/filelist.txt
+
+$(OUTPUT)/training_scenes/filelist.txt: demo_data
 	@python scripts/generate_training_data.py $(PBRT) \
 		$(OBJ2PBRT) \
 		$(DATA)/demo/scenegen_assets $(OUTPUT)/demo/training_scenes --count 2 \
 		--spp 1 --gt_spp 4 --height 128 --width 128
+	@cd $(OUTPUT) && find . -name "*.bin" > filelist.txt
 
 # This shows how to use the visualization helper script to inspect the sample
 # .bin files
@@ -126,18 +129,18 @@ demo/comparisons: demo/render_samples pretrained_models demo_data
 		--tmp_dir $(OUTPUT)/tmp --spp 4
 
 # This demonstrates how to train a new model
-demo/train: server demo/render_samples
+demo/train: server demo/generate_scenes
 	@python scripts/train.py \
 		--checkpoint_dir $(OUTPUT)/demo/training \
-		--data $(DATA)/demo/bins/list.txt \
+		--data $(OUTPUT)/training_scenes/filelist.txt \
 		--env sbmc_ours --port 2001 --bs 1 \
 		--spp 2
 
 # This demonstrates how to train a baseline model (from [Bako 2017])
-demo/train_kpcn: server
+demo/train_kpcn: server demo/generate_scenes
 	@python scripts/train.py \
 		--checkpoint_dir $(OUTPUT)/demo/training_kpcn \
-		--data $(DATA)/demo/bins/list.txt \
+		--data $(OUTPUT)/training_scenes/filelist.txt \
 		--constant_spp --env sbmc_kpcn --port 2001 --bs 1 \
 		--kpcn_mode \
 		--spp 2
