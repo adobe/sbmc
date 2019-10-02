@@ -146,7 +146,7 @@ demo/train_kpcn: server
 server:
 	@python -m visdom.server -p 2001 &
 
-demo/eval:
+demo/eval: precomputed_renderings
 	@python scripts/compute_metrics.py data/renderings/ref output/eval.csv \
 		--methods data/eval_methods.txt \
 		--scenes data/eval_scenes.txt
@@ -165,6 +165,8 @@ $(DATA)/renderings/4spp/spaceship.exr:
 	@python scripts/download.py $(REMOTE)/renderings.zip $(DATA)/renderings.zip
 	cd $(DATA) && unzip renderings.zip
 	rm $(DATA)/renderings.zip
+	@python scripts/download.py $(REMOTE)/eval_methods.txt $(DATA)/eval_methods.txt
+	@python scripts/download.py $(REMOTE)/eval_scenes.txt $(DATA)/eval_scenes.txt
 
 $(DATA)/scenes/spaceship/scene.pbrt:
 	@echo "Downloading test scenes (about 3 GB)"
