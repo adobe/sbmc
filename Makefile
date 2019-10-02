@@ -43,36 +43,17 @@ clean:
 
 .PHONY: demo/render_bins demo/render_reference demo/generate_scenes \
 	demo/visualize demo/denoiser demo/train demo/train_kpcn \
-	demo/render_samples server clean nvidia_docker
-
+	demo/render_samples server clean nvidia_docker demo/data
 
 # -----------------------------------------------------------------------------
 
 # The rest of this Makefiles demonstrates how to use the SBMC API and entry
 # scripts for common tasks.
 
-$(DATA):
-	mkdir -p $(DATA)
-
-# Download the data needed for the demo
-demo/data: $(DATA)/dummy.txt
-
-$(DATA)/dummy.txt: $(DATA)
-	@python scripts/download.py $(REMOTE)/dummy.zip $(DATA)/dummy.zip
-	cd $(DATA) && unzip dummy.zip
-	rm $(DATA)/dummy.zip
-
-pretrained_models: $(DATA)/pretrained_models/gharbi2019_sbmc/final.pth
-
-$(DATA)/pretrained_models/gharbi2019_sbmc/final.pth: $(DATA)
-	@python scripts/download.py $(REMOTE)/pretrained_models.zip $(DATA)/pretrained_models.zip
-	cd $(DATA) && unzip pretrained_models.zip
-	rm $(DATA)/pretrained_models.zip
-
 demo/render_samples: $(OUTPUT)/demo/test_samples/0000_0000.bin
 
 # This demonstrates how we render .bin sample files for a test scene
-$(OUTPUT)/demo/test_samples/0000_0000.bin: demo/data
+$(OUTPUT)/demo/test_samples/0000_0000.bin: demo_data
 	@python scripts/render_samples.py $(PBRT) \
 		$(DATA)/demo/scenes/GITestSynthesizer_01/scene.pbrt \
 		$(OUTPUT)/demo/test_samples \
@@ -81,7 +62,7 @@ $(OUTPUT)/demo/test_samples/0000_0000.bin: demo/data
 
 # This demonstrates how we render .bin sample files for a training dataset 
 # using our random scene generator
-demo/generate_scenes: demo/data
+demo/generate_scenes: demo_data
 	@python scripts/generate_training_data.py $(PBRT) \
 		$(OBJ2PBRT) \
 		$(DATA)/demo/scenegen_assets $(OUTPUT)/demo/training_scenes --count 2 \
@@ -106,16 +87,15 @@ demo/denoise: demo/render_samples pretrained_models
 		--spp 4 \
 		--checkpoint $(DATA)/pretrained_models/bako2017_finetuned
 
-
 # This demonstrates how we render a .exr reference image for a test scene
-demo/render_reference: demo/data
+demo/render_reference: demo_data
 	@python scripts/render_exr.py $(PBRT) \
 		$(DATA)/demo/scenes/GITestSynthesizer_01/scene.pbrt \
 		$(OUTPUT)/demo/comparisons/reference/GITestSynthesizer_01.exr \
 		--tmp_dir $(OUTPUT)/tmp --height 128 --width 128 --spp 4
 
 # This demonstrates how we render .exr images for the comparison denoisers
-demo/comparisons: demo/render_samples pretrained_models demo/data
+demo/comparisons: demo/render_samples pretrained_models demo_data
 	@python scripts/denoise.py \
 		--input $(OUTPUT)/demo/test_samples \
 		--output $(OUTPUT)/demo/comparisons/2017_bako_kpcn_finetuned/GITestSynthesizer_01.exr \
@@ -145,22 +125,22 @@ demo/comparisons: demo/render_samples pretrained_models demo/data
 		$(OUTPUT)/demo/comparisons/2016_bitterli_nfor/GITestSynthesizer_01.exr \
 		--tmp_dir $(OUTPUT)/tmp --spp 4
 
-# # This demonstrates how to train a new model
-# demo/train: server demo/render_samples
-# 	@python scripts/train.py \
-# 		--checkpoint_dir $(OUTPUT)/demo/training \
-# 		--data $(DATA)/demo/bins/list.txt \
-# 		--env sbmc_ours --port 2001 --bs 1 \
-# 		--spp 2
-#
-# # This demonstrates how to train a baseline model (from [Bako 2017])
-# demo/train_kpcn: server
-# 	@python scripts/train.py \
-# 		--checkpoint_dir $(OUTPUT)/demo/training_kpcn \
-# 		--data $(DATA)/demo/bins/list.txt \
-# 		--constant_spp --env sbmc_kpcn --port 2001 --bs 1 \
-# 		--kpcn_mode \
-# 		--spp 2
+# This demonstrates how to train a new model
+demo/train: server demo/render_samples
+	@python scripts/train.py \
+		--checkpoint_dir $(OUTPUT)/demo/training \
+		--data $(DATA)/demo/bins/list.txt \
+		--env sbmc_ours --port 2001 --bs 1 \
+		--spp 2
+
+# This demonstrates how to train a baseline model (from [Bako 2017])
+demo/train_kpcn: server
+	@python scripts/train.py \
+		--checkpoint_dir $(OUTPUT)/demo/training_kpcn \
+		--data $(DATA)/demo/bins/list.txt \
+		--constant_spp --env sbmc_kpcn --port 2001 --bs 1 \
+		--kpcn_mode \
+		--spp 2
 
 # Launches a Visdom server to monitor the training
 server:
@@ -170,3 +150,36 @@ demo/eval:
 	@python scripts/compute_metrics.py data/renderings/ref output/eval.csv \
 		--methods data/eval_methods.txt \
 		--scenes data/eval_scenes.txt
+
+# Download the data needed for the demo ---------------------------------------
+demo_data: $(DATA)/demo/scenes/GITestSynthesizer_01/scene.pbrt
+
+pretrained_models: $(DATA)/pretrained_models/gharbi2019_sbmc/final.pth
+
+test_scenes: $(DATA)/scenes/spaceship/scene.pbrt
+
+precomputed_renderings: $(DATA)/renderings/4spp/spaceship.exr
+
+$(DATA)/renderings/4spp/spaceship.exr:
+	@echo "Downloading precomputed renderings from [Gharbi2019] (about 54 GB)"
+	@python scripts/download.py $(REMOTE)/renderings.zip $(DATA)/renderings.zip
+	cd $(DATA) && unzip renderings.zip
+	rm $(DATA)/renderings.zip
+
+$(DATA)/scenes/spaceship/scene.pbrt:
+	@echo "Downloading test scenes (about 3 GB)"
+	@python scripts/download.py $(REMOTE)/scenes.zip $(DATA)/scenes.zip
+	cd $(DATA) && unzip scenes.zip
+	rm $(DATA)/scenes.zip
+
+$(DATA)/demo/scenes/GITestSynthesizer_01/scene.pbrt:
+	@echo "Downloading demo data (about 30 MB)"
+	@python scripts/download.py $(REMOTE)/demo.zip $(DATA)/demo.zip
+	cd $(DATA) && unzip demo.zip
+	rm $(DATA)/demo.zip
+
+$(DATA)/pretrained_models/gharbi2019_sbmc/final.pth:
+	@echo "Downloading pretrained models (about 512 MB)"
+	@python scripts/download.py $(REMOTE)/pretrained_models.zip $(DATA)/pretrained_models.zip
+	cd $(DATA) && unzip pretrained_models.zip
+	rm $(DATA)/pretrained_models.zip

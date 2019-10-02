@@ -13,7 +13,7 @@ Check out our [project page](http://groups.csail.mit.edu/graphics/rendernet/).
 The quickest way to get started is to run the code from a Docker image. Proceed
 as follows:
 
-1. Download and install Docker <https://www.docker.com/> TODO: instructions for this
+1. Download and install Docker <https://www.docker.com/> on your machine.
 
 2. To enable GPU acceleration in your Docker instance, install the NVidia
    container toolkit: <https://github.com/NVIDIA/nvidia-docker>.
@@ -169,7 +169,10 @@ training. In your web browser, to view the plots navigate to <http://localhost:2
 
 The script `scripts/compute_metrics.py` can be used to
 evaluate a set of .exr renderings numerically. It will print out
-the averages and save the result to .csv files. For an example:
+the averages and save the result to .csv files.
+
+For example, you can download the renderings we produced for our paper evaluation
+and compute the metrics by running:
 
 ```shell
 make demo/eval
@@ -179,12 +182,32 @@ make demo/eval
 
 We provide the pre-rendered .exr results used in our Siggraph submission
 on-demand. To download them, run the command below. Please note this data is
-rather large (x GB).
+rather large (54 GB).
 
 ```shell
-todo
+make precomputed_renderings
 ```
 
 ## Test scene for evaluation
 
+You can download the .pbrt scenes we used for evaluation by running:
+
+```shell
+make test_scenes
+```
+
 ## Samples data: our .bin fileformat
+
+Some sample data used throughout the `demo` commands can be downloaded using:
+
+```shell
+make demo_data
+```
+
+## Samples data: our .bin fileformat
+
+Download our pretrained models with the following command:
+
+```shell
+make pretrained_models
+```
