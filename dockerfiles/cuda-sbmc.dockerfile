@@ -123,7 +123,7 @@ ENV BITTERLI2016 /sbmc_app/2016_bitterli_nfor
 
 # Install our code
 COPY . /sbmc_app/sbmc
-RUN cd sbmc/halide_pytorch && python setup.py install
+RUN cd sbmc/halide_pytorch && python setup.py develop
 RUN cd sbmc && python setup.py install
 WORKDIR /sbmc_app/sbmc
 

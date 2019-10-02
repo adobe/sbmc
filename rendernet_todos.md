@@ -1,3 +1,0 @@
-- Clean HalidePyTorch
-- dont rebuild generators everytime
-- python setup.py install does not copy the .so file of halide ops!

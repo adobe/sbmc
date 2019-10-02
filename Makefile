@@ -38,8 +38,10 @@ docker_run:  docker_build
 		-it sbmc_cuda
 
 clean:
-	rm -rf dist .pytest_cache sbmc.egg-info build sbmc/halide_ops.*.so \
-		$(OUTPUT)/demo*
+	rm -rf dist .pytest_cache sbmc.egg-info build sbmc/halide_ops.*.so
+
+test:
+	pytest tests
 
 .PHONY: demo/render_bins demo/render_reference demo/generate_scenes \
 	demo/visualize demo/denoiser demo/train demo/train_kpcn \
@@ -62,14 +64,14 @@ $(OUTPUT)/demo/test_samples/0000_0000.bin: demo_data
 
 # This demonstrates how we render .bin sample files for a training dataset 
 # using our random scene generator
-demo/generate_scenes: $(OUTPUT)/training_scenes/filelist.txt
+demo/generate_scenes: $(OUTPUT)/demo/training_scenes/filelist.txt
 
-$(OUTPUT)/training_scenes/filelist.txt: demo_data
+$(OUTPUT)/demo/training_scenes/filelist.txt: demo_data
 	@python scripts/generate_training_data.py $(PBRT) \
 		$(OBJ2PBRT) \
 		$(DATA)/demo/scenegen_assets $(OUTPUT)/demo/training_scenes --count 2 \
 		--spp 1 --gt_spp 4 --height 128 --width 128
-	@cd $(OUTPUT) && find . -name "*.bin" > filelist.txt
+	@cd $(OUTPUT)/demo/training_scenes && find . -name "*.bin" > filelist.txt
 
 # This shows how to use the visualization helper script to inspect the sample
 # .bin files
@@ -129,18 +131,18 @@ demo/comparisons: demo/render_samples pretrained_models demo_data
 		--tmp_dir $(OUTPUT)/tmp --spp 4
 
 # This demonstrates how to train a new model
-demo/train: server demo/generate_scenes
+demo/train: demo/generate_scenes
 	@python scripts/train.py \
 		--checkpoint_dir $(OUTPUT)/demo/training \
-		--data $(OUTPUT)/training_scenes/filelist.txt \
+		--data $(OUTPUT)/demo/training_scenes/filelist.txt \
 		--env sbmc_ours --port 2001 --bs 1 \
 		--spp 2
 
 # This demonstrates how to train a baseline model (from [Bako 2017])
-demo/train_kpcn: server demo/generate_scenes
+demo/train_kpcn: demo/generate_scenes
 	@python scripts/train.py \
 		--checkpoint_dir $(OUTPUT)/demo/training_kpcn \
-		--data $(OUTPUT)/training_scenes/filelist.txt \
+		--data $(OUTPUT)/demo/training_scenes/filelist.txt \
 		--constant_spp --env sbmc_kpcn --port 2001 --bs 1 \
 		--kpcn_mode \
 		--spp 2
