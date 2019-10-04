@@ -45,10 +45,18 @@ def main():
             raise ValueError("could not find version number")
 
     halide_root = os.getenv("HALIDE_DISTRIB_DIR")
-    if halide_root is None:
-        print("The HALIDE_DISTRIB_DIR environment variable is not set, would"
-              " you like to download a pre-compiled distribution?")
-        return
+    if not halide_root:
+        # TODO: try local download
+        print("The HALIDE_DISTRIB_DIR environment variable is not set, and"
+              " Halide was not found in the default `vendor` path, would you"
+              " like to download a pre-compiled distribution?")
+        ret = input("yes/no?")
+        if ret in ["y", "yes"]:
+            pass
+            return
+        else:
+            print("Not downloading Halide, installation aborted.")
+            return
 
     if platform.system() == "Windows":
         raise RuntimeError("Windows platform not supported.")

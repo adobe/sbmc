@@ -37,7 +37,7 @@ and run it:
 4. (optional) From within the running Docker instance, run the package's tests:
 
     ```shell
-    pytest tests
+    make test
     ```
 
 5. Again, within the Docker instance. Try a few demo commands, e.g. run a pretrained denoiser on a test input:
