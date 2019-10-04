@@ -125,11 +125,10 @@ make demo/denoise
 
 ### Comparisons to previous work
 
-In the dockerfile, we setup the code from several
-previous work to facilitate comparison. We provide our
-modifications to the original codebases as patch files
-in `pbrt_patches/`. The changes are mostly simple
-modification to the C++ code so it compiles with gcc.
+In the dockerfile, we setup the code from several previous work to facilitate
+comparison. We provide our modifications to the original codebases as patch
+files in `pbrt_patches/`. The changes are mostly simple modification to the C++
+code so it compiles with gcc.
 
 The comparison include:
 * [Sen2011] "On Filtering the Noise from the Random Parameters in Monte Carlo Rendering"
@@ -165,6 +164,7 @@ make demo/train_kpcn
 Those scripts will also launch a Visdom server to enable you to monitor the
 training. In your web browser, to view the plots navigate to <http://localhost:2001>.
 
+
 ### Numerical evaluation
 
 The script `scripts/compute_metrics.py` can be used to
@@ -178,6 +178,7 @@ and compute the metrics by running:
 make demo/eval
 ```
 
+
 ## Precomputed .exr results from our submission
 
 We provide the pre-rendered .exr results used in our Siggraph submission
@@ -188,6 +189,7 @@ rather large (54 GB).
 make precomputed_renderings
 ```
 
+
 ## Test scene for evaluation
 
 You can download the .pbrt scenes we used for evaluation by running:
@@ -195,6 +197,11 @@ You can download the .pbrt scenes we used for evaluation by running:
 ```shell
 make test_scenes
 ```
+
+This will only download the scene description and assets. The images (or
+samples) themselves still need to be rendered from this data, using the
+`scripts/render_exr.py` and `scripts/render_samples.py` scripts respectively.
+
 
 ## Samples data: our .bin fileformat
 
@@ -204,7 +211,8 @@ Some sample data used throughout the `demo` commands can be downloaded using:
 make demo_data
 ```
 
-## Samples data: our .bin fileformat
+
+## Pretrained models
 
 Download our pretrained models with the following command:
 
