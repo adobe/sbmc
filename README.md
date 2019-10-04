@@ -43,7 +43,7 @@ and run it:
 5. Again, within the Docker instance. Try a few demo commands, e.g. run a pretrained denoiser on a test input:
 
     ```shell
-    make demo/denoiser
+    make demo/denoise
     ```
 
     See below, or have a look at the `Makefile` for more `demo/*` commands you can try.
