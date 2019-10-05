@@ -84,7 +84,7 @@ contains our modification to the renderer to save individual samples to disk.
 
 To render samples as `.bin` files from a `.pbrt` scene description, use the
 `scripts/render_samples.py` script. This script assumes the PBRT scene file
-contains only the scene description. It will create the apropriate header
+contains only the scene description. It will create the appropriate header
 description for the camera, sampler, path-tracer, etc. For an example, try:
 
 ```shell
