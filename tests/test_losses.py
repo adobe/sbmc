@@ -30,7 +30,7 @@ class TestRelativeMSE(unittest.TestCase):
             val = 0.34
             val2 = 0.7
             n = np.array(sz).prod()
-            target = ((val-val2)**2 / (val**2 + self.eps)) * 0.5 / n
+            target = (val-val2)**2 / (val**2 + self.eps) * 0.5 / n
 
             for dx in range(n):
                 ref.zero_()
@@ -57,7 +57,7 @@ class TestSMAPE(unittest.TestCase):
             val = 0.34
             val2 = 0.7
             n = np.array(sz).prod()
-            target = ((val2-val) / (val + val2 + self.eps)) / n
+            target = (val2-val) / (val + val2 + self.eps) / n
 
             for dx in range(n):
                 ref.zero_()
@@ -117,7 +117,7 @@ class TestTonemappedRelativeMSE(unittest.TestCase):
             # tonemap
             val_t = val / (1 + val)
             val2_t = val2 / (1 + val2)
-            target = ((val_t-val2_t)**2 / (val_t**2 + self.eps)) * 0.5 / n
+            target = (val_t-val2_t)**2 / (val_t**2 + self.eps) * 0.5 / n
 
             for dx in range(n):
                 ref.zero_()
