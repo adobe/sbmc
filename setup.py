@@ -36,7 +36,7 @@ def main():
               "You can install the module using the following command:\n\n"
               "\t`pip install halide_pytorch`\n\n"
               "Aborting setup.")
-        return
+        return None
 
     with open(os.path.join(dirname, "sbmc", "version.py")) as fid:
         try:
@@ -48,7 +48,7 @@ def main():
     if halide_root is None:
         print("The HALIDE_DISTRIB_DIR environment variable is not set, would"
               " you like to download a pre-compiled distribution?")
-        return
+        return None
 
     if platform.system() == "Windows":
         raise RuntimeError("Windows platform not supported.")
