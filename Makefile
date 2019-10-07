@@ -16,8 +16,12 @@ ROUSSELLE2012?=_extras/comparisons/methods/2012_rousselle_nlm
 KALANTARI2015?=_extras/comparisons/methods/2015_kalantari_lbf
 BITTERLI2016?=_extras/comparisons/methods/nfor_fromdocker
 
+# Checks whether docker version supports the --gpus option
+check_docker_version:
+	./scripts/check_docker_version.sh
+
 # Install the required extension for CUDA on Docker
-nvidia_docker:
+nvidia_docker: check_docker_version
 	./scripts/install_nvidia_docker.sh
 
 # To facilitate environment setup, build and use this dockerfile
