@@ -51,6 +51,8 @@ and run it:
 
     If all goes well, this will launch a shell on the Docker instance and you
     should not have to worry about configuring the Linux or Python environment.
+	Notice that nvidia supports `docker >= 19.03`, so if your version is outdated,
+	gpu support will be disabled.
 
 4. (optional) From within the running Docker instance, run the package's tests:
 

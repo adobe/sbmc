@@ -16,6 +16,18 @@ ROUSSELLE2012?=_extras/comparisons/methods/2012_rousselle_nlm
 KALANTARI2015?=_extras/comparisons/methods/2015_kalantari_lbf
 BITTERLI2016?=_extras/comparisons/methods/nfor_fromdocker
 
+DOCKER_VERSION = $(shell docker version --format '{{.Client.Version}}')
+DOCKER_VERSION_MAJOR := $(shell echo ${DOCKER_VERSION} | cut -d. -f1)
+DOCKER_VERSION_MINOR := $(shell echo ${DOCKER_VERSION} | cut -d. -f2)
+DOCKER_GT_19_03 := $(shell [ $(DOCKER_VERSION_MAJOR) -gt 19 -o \( $(DOCKER_VERSION_MAJOR) -eq 19 -a $(DOCKER_VERSION_MINOR) -ge 3 \) ] && echo true)
+
+# Docker only supports --gpus from 19.03
+ifeq ($(DOCKER_GT_19_03),true)
+DOCKER_FLAGS += --gpus
+else
+DOCKER_FLAGS += --cpus
+endif
+
 # Install the required extension for CUDA on Docker
 nvidia_docker:
 	./scripts/install_nvidia_docker.sh
@@ -30,7 +42,7 @@ docker_build:
 # Once logged into the docker instance, you can run any of the `make demo/*`
 # commands.
 docker_run:  docker_build
-	@docker run --gpus all --name sbmc_cuda_app --rm \
+	@docker run ${DOCKER_FLAGS} all --name sbmc_cuda_app --rm \
 		-v $(OUTPUT):/sbmc_app/output \
 		-v $(DATA):/sbmc_app/data \
 		--ipc=host \
