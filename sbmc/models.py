@@ -119,7 +119,7 @@ class Multisteps(nn.Module):
         """
         radiance = samples["radiance"]
         features = samples["features"]
-        gfeatures = samples["global_features"].cuda()
+        gfeatures = samples["global_features"].to(radiance.device)
 
         if self.pixel:
             # Make the pixel-average look like one sample
@@ -144,7 +144,7 @@ class Multisteps(nn.Module):
                 # Go through the samples one by one to preserve memory for
                 # large images
                 for sp in range(spp):
-                    f = features[:, sp].cuda()
+                    f = features[:, sp].to(radiance.device)
                     if step == 0:  # Global features at first iteration only
                         f = th.cat([f, gf], 1)
                     else:
@@ -160,11 +160,13 @@ class Multisteps(nn.Module):
                         reduced.add_(f)
 
                     del f
-                    th.cuda.empty_cache()
+                    if th.cuda.is_available():
+                        th.cuda.empty_cache()
 
                 features = new_features
                 reduced.div_(spp)
-                th.cuda.empty_cache()
+                if th.cuda.is_available():
+                    th.cuda.empty_cache()
             else:
                 flat = features.view([bs*spp, nf, h, w])
                 if step == 0:  # Global features at first iteration only
@@ -183,25 +185,28 @@ class Multisteps(nn.Module):
 
             if limit_memory_usage:
                 del reduced
-                th.cuda.empty_cache()
+                if th.cuda.is_available():
+                    th.cuda.empty_cache()
 
         # Predict kernels based on the context information and
         # the current sample's features
         sum_r, sum_w, max_w = None, None, None
 
         for sp in range(spp):
-            f = features[:, sp].cuda()
+            f = features[:, sp].to(radiance.device)
             f = th.cat([f, propagated], 1)
-            r = radiance[:, sp].cuda()
+            r = radiance[:, sp].to(radiance.device)
             kernels = self.kernel_regressor(f)
             if limit_memory_usage:
-                th.cuda.empty_cache()
+                if th.cuda.is_available():
+                    th.cuda.empty_cache()
 
             # Update radiance estimate
             sum_r, sum_w, max_w = self.kernel_update(
                 crop_like(r, kernels), kernels, sum_r, sum_w, max_w)
             if limit_memory_usage:
-                th.cuda.empty_cache()
+                if th.cuda.is_available():
+                    th.cuda.empty_cache()
 
         # Normalize output with the running sum
         output = sum_r / (sum_w + self.eps)

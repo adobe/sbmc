@@ -124,7 +124,8 @@ def main(args):
 
     model.train(False)
     device = "cpu"
-    if th.cuda.is_available():
+    cuda = th.cuda.is_available()
+    if cuda:
         LOG.info("Using CUDA")
         model.cuda()
         device = "cuda"
@@ -148,7 +149,8 @@ def main(args):
         batch_parts = _split_tiles(batch, max_sz=tile_sz, pad=tile_pad)
         out_radiance = th.zeros_like(batch["low_spp"])
 
-        th.cuda.synchronize()
+        if cuda:
+            th.cuda.synchronize()
         start = time.time()
         for part, start_y, end_y, start_x, end_x, pad_ in batch_parts:
             with th.no_grad():
@@ -157,7 +159,8 @@ def main(args):
                 out_ = out_[..., pad_[0]:out_.shape[-2] -
                             pad_[1], pad_[2]:out_.shape[-1]-pad_[3]]
                 out_radiance[..., start_y:end_y, start_x:end_x] = out_
-        th.cuda.synchronize()
+        if cuda:
+            th.cuda.synchronize()
         elapsed = (time.time() - start)*1000
         LOG.info("    denoising time {:.1f} ms".format(elapsed))
 

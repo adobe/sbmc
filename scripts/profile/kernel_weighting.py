@@ -48,7 +48,8 @@ def profile_kernel_weighting(gpu):
     print("Burning 5 iterations")
     for i in range(5):
         o, s = funcs.KernelWeighting.apply(data, weights)
-    th.cuda.synchronize()
+    if gpu:
+        th.cuda.synchronize()
 
     print("Profiling")
     with profiler.profile(use_cuda=gpu) as prof:

@@ -25,6 +25,11 @@ nvidia_docker:
 docker_build:
 	@docker build -f dockerfiles/cuda-sbmc.dockerfile -t sbmc_cuda .
 
+# To facilitate environment setup, build and use this dockerfile
+# !! Requires NVIDIA's docker extension !!
+docker_build_cpu:
+	@docker build -f dockerfiles/cpu-sbmc.dockerfile -t sbmc_cpu .
+
 # This target launches a fully configured docker instance,
 # mounts $(OUTPUT) as read-write volume and $(DATA) as readonly for persisten I/O.
 # Once logged into the docker instance, you can run any of the `make demo/*`
@@ -37,13 +42,21 @@ docker_run:  docker_build
 		-p 2001:2001 \
 		-it sbmc_cuda
 
+docker_run_cpu:  docker_build_cpu
+	@docker run --name sbmc_cpu_app --rm \
+		-v $(OUTPUT):/sbmc_app/output \
+		-v $(DATA):/sbmc_app/data \
+		--ipc=host \
+		-p 2002:2001 \
+		-it sbmc_cpu
+
 clean:
 	rm -rf dist .pytest_cache sbmc.egg-info build sbmc/halide_ops.*.so
 
 test:
 	pytest tests
 
-.PHONY: demo/render_bins demo/render_reference demo/generate_scenes \
+.PHONY: demo/render_bins demo/render_reference \
 	demo/visualize demo/denoiser demo/train demo/train_kpcn \
 	demo/render_samples server clean nvidia_docker demo/data
 
@@ -70,7 +83,7 @@ $(OUTPUT)/demo/training_scenes/filelist.txt: demo_data
 	@python scripts/generate_training_data.py $(PBRT) \
 		$(OBJ2PBRT) \
 		$(DATA)/demo/scenegen_assets $(OUTPUT)/demo/training_scenes --count 2 \
-		--spp 1 --gt_spp 4 --height 128 --width 128
+		--spp 4 --gt_spp 4 --height 128 --width 128
 	@cd $(OUTPUT)/demo/training_scenes && find . -name "*.bin" > filelist.txt
 
 # This shows how to use the visualization helper script to inspect the sample
@@ -100,6 +113,8 @@ demo/render_reference: demo_data
 		--tmp_dir $(OUTPUT)/tmp --height 128 --width 128 --spp 4
 
 # This demonstrates how we render .exr images for the comparison denoisers
+# Rouselle2012 and Kalantari2015 require a GPU and are expected to fail on the
+# CPU-only docker image.
 demo/comparisons: demo/render_samples pretrained_models demo_data
 	@python scripts/denoise.py \
 		--input $(OUTPUT)/demo/test_samples \
@@ -115,6 +130,10 @@ demo/comparisons: demo/render_samples pretrained_models demo_data
 		$(DATA)/demo/scenes/GITestSynthesizer_01/scene.pbrt \
 		$(OUTPUT)/demo/comparisons/2011_sen_rpf/GITestSynthesizer_01.exr \
 		--tmp_dir $(OUTPUT)/tmp --height 128 --width 128 --spp 4
+	@python scripts/denoise_nfor.py $(BITTERLI2016)/build/denoiser \
+		$(OUTPUT)/demo/test_samples \
+		$(OUTPUT)/demo/comparisons/2016_bitterli_nfor/GITestSynthesizer_01.exr \
+		--tmp_dir $(OUTPUT)/tmp --spp 4
 	@python scripts/render_exr.py $(ROUSSELLE2012)/bin/pbrt \
 		$(DATA)/demo/scenes/GITestSynthesizer_01/scene.pbrt \
 		$(OUTPUT)/demo/comparisons/2012_rousselle_nlm/GITestSynthesizer_01.exr \
@@ -125,10 +144,6 @@ demo/comparisons: demo/render_samples pretrained_models demo_data
 		--tmp_dir $(OUTPUT)/tmp --height 128 --width 128 --spp 4 \
 		--kalantari2015_data $(KALANTARI2015)/pretrained/Weights.dat \
 		$(KALANTARI2015)/pretrained/FeatureNorm.dat
-	@python scripts/denoise_nfor.py $(BITTERLI2016)/build/denoiser \
-		$(OUTPUT)/demo/test_samples \
-		$(OUTPUT)/demo/comparisons/2016_bitterli_nfor/GITestSynthesizer_01.exr \
-		--tmp_dir $(OUTPUT)/tmp --spp 4
 
 # This demonstrates how to train a new model
 demo/train: demo/generate_scenes
@@ -136,7 +151,7 @@ demo/train: demo/generate_scenes
 		--checkpoint_dir $(OUTPUT)/demo/training \
 		--data $(OUTPUT)/demo/training_scenes/filelist.txt \
 		--env sbmc_ours --port 2001 --bs 1 \
-		--spp 2
+		--spp 4
 
 # This demonstrates how to train a baseline model (from [Bako 2017])
 demo/train_kpcn: demo/generate_scenes
@@ -145,7 +160,7 @@ demo/train_kpcn: demo/generate_scenes
 		--data $(OUTPUT)/demo/training_scenes/filelist.txt \
 		--constant_spp --env sbmc_kpcn --port 2001 --bs 1 \
 		--kpcn_mode \
-		--spp 2
+		--spp 4
 
 # Launches a Visdom server to monitor the training
 server:

@@ -45,7 +45,8 @@ def profile_scatter2gather(gpu):
     print("Burning 5 iterations")
     for i in range(5):
         w2 = funcs.Scatter2Gather.apply(weights)
-    th.cuda.synchronize()
+    if gpu:
+        th.cuda.synchronize()
 
     print("Profiling")
     with profiler.profile(use_cuda=gpu) as prof:

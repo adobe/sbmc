@@ -22,12 +22,12 @@ as follows:
     ```shell
     sudo usermod -aG docker ${USER}
     ```
-   
+
     2. To apply the new group membership, log out of the server and back in, or type the following:
     ```shell
     su - ${USER}
     ```
-   
+
     3. Confirm that your user is now added to the `docker` group by typing:
     ```shell
     id -nG
@@ -51,6 +51,13 @@ and run it:
 
     If all goes well, this will launch a shell on the Docker instance and you
     should not have to worry about configuring the Linux or Python environment.
+
+    Alternatively, you can build a CPU-only version of the Docker image:
+
+    ```shell
+    make docker_build_cpu
+    make docker_run_cpu
+    ```
 
 4. (optional) From within the running Docker instance, run the package's tests:
 
