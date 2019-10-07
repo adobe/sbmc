@@ -13,7 +13,25 @@ Check out our [project page](http://groups.csail.mit.edu/graphics/rendernet/).
 The quickest way to get started is to run the code from a Docker image. Proceed
 as follows:
 
-1. Download and install Docker <https://www.docker.com/> on your machine.
+1. Download and [install Docker on your machine](https://docs.docker.com/install/linux/docker-ce/ubuntu/#install-docker-engine---community).
+
+2. Allow `docker` to be executed without `sudo`
+
+    1. Add username to the `docker` group
+
+    ```shell
+    sudo usermod -aG docker ${USER}
+    ```
+   
+    2. To apply the new group membership, log out of the server and back in, or type the following:
+    ```shell
+    su - ${USER}
+    ```
+   
+    3. Confirm that your user is now added to the `docker` group by typing:
+    ```shell
+    id -nG
+    ```
 
 2. To enable GPU acceleration in your Docker instance, install the NVidia
    container toolkit: <https://github.com/NVIDIA/nvidia-docker>.
@@ -84,7 +102,7 @@ contains our modification to the renderer to save individual samples to disk.
 
 To render samples as `.bin` files from a `.pbrt` scene description, use the
 `scripts/render_samples.py` script. This script assumes the PBRT scene file
-contains only the scene description. It will create the apropriate header
+contains only the scene description. It will create the appropriate header
 description for the camera, sampler, path-tracer, etc. For an example, try:
 
 ```shell
