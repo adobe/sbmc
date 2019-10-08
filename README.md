@@ -71,6 +71,12 @@ and run it:
     make demo/denoise
     ```
 
+    This should download the pretrained models to `data/pretrained_models`,
+    some demo scenes to `data/demo/scenes`, and render some noisy samples data
+    to `output/test_samples`. After that, our model will be run to produce a denoised output:
+    `output/ours_4spp.exr` (linear radiance)  and `output/ours_4spp.png`
+    (clamped 8bit rendering).
+
     See below, or have a look at the `Makefile` for more `demo/*` commands you can try.
 
 
