@@ -56,6 +56,12 @@ clean:
 test:
 	pytest tests
 
+halide:
+	curl -L https://github.com/halide/Halide/releases/download/release_2019_08_27/halide-linux-64-gcc53-800-65c26cba6a3eca2d08a0bccf113ca28746012cc3.tgz | tar xz
+
+install: halide
+	HALIDE_DISTRIB_DIR=$(shell pwd)/halide python setup.py install
+
 .PHONY: demo/render_bins demo/render_reference \
 	demo/visualize demo/denoiser demo/train demo/train_kpcn \
 	demo/render_samples server clean nvidia_docker demo/data
