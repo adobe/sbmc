@@ -16,6 +16,17 @@ ROUSSELLE2012?=_extras/comparisons/methods/2012_rousselle_nlm
 KALANTARI2015?=_extras/comparisons/methods/2015_kalantari_lbf
 BITTERLI2016?=_extras/comparisons/methods/nfor_fromdocker
 
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S), Linux)
+	HALIDE_DISTRIB = linux-64-gcc53-800
+endif
+ifeq ($(UNAME_S), Darwin)
+	HALIDE_DISTRIB = mac-64-800
+endif
+
+HALIDE_RELEASE_URL = https://github.com/halide/Halide/releases/download/release_2019_08_27/halide-${HALIDE_DISTRIB}-65c26cba6a3eca2d08a0bccf113ca28746012cc3.tgz
+
+
 # Install the required extension for CUDA on Docker
 nvidia_docker:
 	./scripts/install_nvidia_docker.sh
@@ -57,7 +68,7 @@ test:
 	pytest tests
 
 halide:
-	curl -L https://github.com/halide/Halide/releases/download/release_2019_08_27/halide-linux-64-gcc53-800-65c26cba6a3eca2d08a0bccf113ca28746012cc3.tgz | tar xz
+	curl -L ${HALIDE_RELEASE_URL} | tar xz
 
 install: halide
 	HALIDE_DISTRIB_DIR=$(shell pwd)/halide python setup.py install
