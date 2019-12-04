@@ -30,11 +30,17 @@ docker_build:
 docker_build_cpu:
 	@docker build -f dockerfiles/cpu-sbmc.dockerfile -t sbmc_cpu .
 
+$(OUTPUT):
+	mkdir -p $(OUTPUT)
+
+$(DATA):
+	mkdir -p $(DATA)
+
 # This target launches a fully configured docker instance,
 # mounts $(OUTPUT) as read-write volume and $(DATA) as readonly for persisten I/O.
 # Once logged into the docker instance, you can run any of the `make demo/*`
 # commands.
-docker_run:  docker_build
+docker_run:  docker_build $(OUTPUT) $(DATA)
 	@docker run --gpus all --name sbmc_cuda_app --rm \
 		-v $(OUTPUT):/sbmc_app/output \
 		-v $(DATA):/sbmc_app/data \
@@ -42,7 +48,7 @@ docker_run:  docker_build
 		-p 2001:2001 \
 		-it sbmc_cuda
 
-docker_run_cpu:  docker_build_cpu
+docker_run_cpu:  docker_build_cpu $(OUTPUT) $(DATA)
 	@docker run --name sbmc_cpu_app --rm \
 		-v $(OUTPUT):/sbmc_app/output \
 		-v $(DATA):/sbmc_app/data \

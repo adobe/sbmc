@@ -71,11 +71,15 @@ and run it:
     make demo/denoise
     ```
 
-    This should download the pretrained models to `data/pretrained_models`,
-    some demo scenes to `data/demo/scenes`, and render some noisy samples data
-    to `output/test_samples`. After that, our model will be run to produce a denoised output:
-    `output/ours_4spp.exr` (linear radiance)  and `output/ours_4spp.png`
+    This should download the pretrained models to `$(DATA)/pretrained_models`,
+    some demo scenes to `$(DATA)/demo/scenes`, and render some noisy samples data
+    to `$(OUTPUT)/demo/test_samples`. After that, our model will be run to produce a denoised output:
+    `$(OUTPUT)/demo/ours_4spp.exr` (linear radiance)  and `$(OUTPUT)/demo/ours_4spp.png`
     (clamped 8bit rendering).
+
+    In the docker, `$(OUTPUT)` maps to `/sbmc_app/output` by default. Outside
+    the docker this is mapped to the `output` subfolder of this repository, so
+    that both data and output persist across runs.
 
     See below, or have a look at the `Makefile` for more `demo/*` commands you can try.
 

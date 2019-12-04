@@ -25,11 +25,11 @@ import shutil
 import tempfile
 import time
 import pyexr
-import skimage.io as skio
 
 import torch as th
 import numpy as np
 from torch.utils.data import DataLoader
+import skimage.io as skio
 
 import ttools
 

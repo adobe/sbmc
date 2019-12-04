@@ -22,8 +22,8 @@ import argparse
 import os
 import numpy as np
 from torch.utils.data import DataLoader
-import skimage.io as skio
 import ttools
+import skimage.io as skio
 
 from sbmc.datasets import FullImagesDataset
 

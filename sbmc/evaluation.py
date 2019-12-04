@@ -21,8 +21,8 @@ import os
 
 import numpy as np
 import pyexr
-from skimage.measure import compare_ssim as ssim
 import pandas as pd
+from skimage.measure import compare_ssim as ssim
 
 import ttools
 

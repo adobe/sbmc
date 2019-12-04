@@ -7,12 +7,12 @@ import logging
 
 import numpy as np
 import scipy.ndimage.filters as filters
-import skimage.io as skio
 import torch as th
 from torch.utils.data import DataLoader
 from torchvision import transforms
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset
+import skimage.io as skio
 
 import ttools
 from ttools.modules.image_operators import crop_like
