@@ -138,8 +138,9 @@ make demo/generate_scenes
 
 ### Visualizing the image content of .bin sample files.
 
-We provide a helper script to inspect the content of .bin sample files, `scripts/visualize_dataset.py`.
-For instance, to visualize the scenes generate in the previous section, run:
+We provide a helper script to inspect the content of .bin sample files,
+`scripts/visualize_dataset.py`. For instance, to visualize the training data
+generated in the previous section, run:
 
 ```shell
 make demo/visualize

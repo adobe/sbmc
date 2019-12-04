@@ -101,7 +101,7 @@ def main():
         packages=packages,
         ext_modules=[extension],
         install_requires=["torch-tools", "bridson", "pandas", "pyexr",
-                          "scikit-image", "lz4", "wget"],
+                          "scikit-image", "lz4", "wget", "torch==1.2.0"],
         cmdclass=dict(build_ext=hlpt.HalideBuildExtension),
     )
 

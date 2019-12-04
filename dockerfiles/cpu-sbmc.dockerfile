@@ -80,7 +80,7 @@ RUN curl -o /sbmc_app/anaconda.sh -O \
 ENV PATH /sbmc_app/anaconda/bin:$PATH
 
 RUN source activate
-RUN conda install pytorch torchvision -c pytorch  
+RUN conda install pytorch==1.2.0 torchvision==0.4.0 -c pytorch  
 # RUN conda install pytorch torchvision cudatoolkit=9.2 -c pytorch  
 RUN pip install --upgrade pip && pip install pytest
 # -----------------------------------------------------------------------------
