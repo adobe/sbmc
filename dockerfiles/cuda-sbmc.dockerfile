@@ -46,7 +46,7 @@ RUN mv pbrt_tmp/src pbrt
 RUN rm -rf pbrt_tmp
 # The patch allows to save samples while path-tracing
 RUN patch -d pbrt -p1 -i /sbmc_app/patches/sbmc_pbrt.diff
-RUN cd pbrt && make -j
+RUN cd pbrt && make -j 4
 
 # Install a few previous denoising works for comparison -----------------------
 
@@ -58,7 +58,7 @@ RUN wget http://cvc.ucsb.edu/graphics/Papers/Sen2011_RPF/PaperData/RPF-v1.0.zip 
             rm -rf RPF-v1.0*
 # Patch to fix compilation errors
 RUN patch -d 2011_sen_rpf -p1 -i /sbmc_app/patches/2011_sen_rpf.diff 
-RUN cd 2011_sen_rpf && make -j
+RUN cd 2011_sen_rpf && make -j 4
 
 # [Rousselle2012] :requires CUDA
 # "Adaptive Rendering with Non-Local Means Filtering"
@@ -68,7 +68,7 @@ RUN wget http://cgg-zwicker.inf.unibe.ch/downloads/nlm-code-data.zip && \
             rm -rf nlm-code+data nlm-code-data.zip
 # Patch to fix compilation errors
 RUN patch -d 2012_rousselle_nlm -p1 -i /sbmc_app/patches/2012_rousselle_nlm.diff 
-RUN cd 2012_rousselle_nlm && make -j
+RUN cd 2012_rousselle_nlm && make -j 4
 
 # [Kalantari2015]: requires CUDA.
 # "A Machine Learning Approach for Filtering Monte Carlo Noise"
@@ -79,13 +79,13 @@ RUN wget http://cvc.ucsb.edu/graphics/Papers/SIGGRAPH2015_LBF/PaperData/SIGGRAPH
             mv SIGGRAPH15_LBF_v1.0/pbrt-v2-lbf/scenes/*.dat 2015_kalantari_lbf/pretrained && \
             rm -rf SIGGRAPH15_LBF_v1.0*
 RUN patch -d 2015_kalantari_lbf -p1 -i /sbmc_app/patches/2015_kalantari_lbf.diff 
-RUN cd 2015_kalantari_lbf && make -j
+RUN cd 2015_kalantari_lbf && make -j 4
 
 # [Bitterli2016]
 RUN git clone https://github.com/tunabrain/tungsten.git 2016_bitterli_nfor
 RUN cd 2016_bitterli_nfor && git checkout 88ea02044dbaf20472a8173b6752460b50c096d8 && rm -rf .git
 RUN patch -d 2016_bitterli_nfor -p1 -i /sbmc_app/patches/2016_bitterli_nfor.diff
-RUN cd 2016_bitterli_nfor && mkdir build && cd build && cmake .. && make -j
+RUN cd 2016_bitterli_nfor && mkdir build && cd build && cmake .. && make -j 4
 # -----------------------------------------------------------------------------
 
 
