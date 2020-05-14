@@ -52,34 +52,34 @@ RUN cd pbrt && make -j 4
 
 # [Sen2011] 
 # "On Filtering the Noise from the Random Parameters in Monte Carlo Rendering"
-RUN wget http://cvc.ucsb.edu/graphics/Papers/Sen2011_RPF/PaperData/RPF-v1.0.zip && \
+RUN (wget http://cvc.ucsb.edu/graphics/Papers/Sen2011_RPF/PaperData/RPF-v1.0.zip && \
             unzip RPF-v1.0.zip && \
             mv RPF-v1.0/pbrt-v2-rpf/src 2011_sen_rpf && \
-            rm -rf RPF-v1.0*
+            rm -rf RPF-v1.0*  && \
 # Patch to fix compilation errors
-RUN patch -d 2011_sen_rpf -p1 -i /sbmc_app/patches/2011_sen_rpf.diff 
-RUN cd 2011_sen_rpf && make -j 4
+            patch -d 2011_sen_rpf -p1 -i /sbmc_app/patches/2011_sen_rpf.diff && \
+            cd 2011_sen_rpf && make -j 4) || echo "Sen2011 could not be downloaded"
 
 # [Rousselle2012] :requires CUDA
 # "Adaptive Rendering with Non-Local Means Filtering"
-RUN wget http://cgg-zwicker.inf.unibe.ch/downloads/nlm-code-data.zip && \
+RUN (wget http://cgg-zwicker.inf.unibe.ch/downloads/nlm-code-data.zip && \
             unzip nlm-code-data.zip && \
             mv nlm-code+data/pbrt-v2-nlm/src 2012_rousselle_nlm && \
-            rm -rf nlm-code+data nlm-code-data.zip
+            rm -rf nlm-code+data nlm-code-data.zip && \
 # Patch to fix compilation errors
-RUN patch -d 2012_rousselle_nlm -p1 -i /sbmc_app/patches/2012_rousselle_nlm.diff 
-RUN cd 2012_rousselle_nlm && make -j 4
+            patch -d 2012_rousselle_nlm -p1 -i /sbmc_app/patches/2012_rousselle_nlm.diff  && \
+            cd 2012_rousselle_nlm && make -j 4 ) || echo "Rousselle2012 could not be downloaded"
 
 # [Kalantari2015]: requires CUDA.
 # "A Machine Learning Approach for Filtering Monte Carlo Noise"
-RUN wget http://cvc.ucsb.edu/graphics/Papers/SIGGRAPH2015_LBF/PaperData/SIGGRAPH15_LBF_v1.0.zip && \
+RUN (wget http://cvc.ucsb.edu/graphics/Papers/SIGGRAPH2015_LBF/PaperData/SIGGRAPH15_LBF_v1.0.zip && \
             unzip SIGGRAPH15_LBF_v1.0.zip && \
             mv SIGGRAPH15_LBF_v1.0/pbrt-v2-lbf/src 2015_kalantari_lbf && \
             mkdir 2015_kalantari_lbf/pretrained && \
             mv SIGGRAPH15_LBF_v1.0/pbrt-v2-lbf/scenes/*.dat 2015_kalantari_lbf/pretrained && \
-            rm -rf SIGGRAPH15_LBF_v1.0*
-RUN patch -d 2015_kalantari_lbf -p1 -i /sbmc_app/patches/2015_kalantari_lbf.diff 
-RUN cd 2015_kalantari_lbf && make -j 4
+            rm -rf SIGGRAPH15_LBF_v1.0*  && \
+            patch -d 2015_kalantari_lbf -p1 -i /sbmc_app/patches/2015_kalantari_lbf.diff  && \\
+            cd 2015_kalantari_lbf && make -j 4 ) || echo "Kalantari2015 could not be downloaded"
 
 # [Bitterli2016]
 RUN git clone https://github.com/tunabrain/tungsten.git 2016_bitterli_nfor

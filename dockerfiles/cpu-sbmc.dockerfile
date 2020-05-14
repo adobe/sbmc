@@ -48,13 +48,13 @@ RUN cd pbrt && make -j 4
 
 # [Sen2011] 
 # "On Filtering the Noise from the Random Parameters in Monte Carlo Rendering"
-RUN wget http://cvc.ucsb.edu/graphics/Papers/Sen2011_RPF/PaperData/RPF-v1.0.zip && \
+RUN (wget http://cvc.ucsb.edu/graphics/Papers/Sen2011_RPF/PaperData/RPF-v1.0.zip && \
             unzip RPF-v1.0.zip && \
             mv RPF-v1.0/pbrt-v2-rpf/src 2011_sen_rpf && \
-            rm -rf RPF-v1.0*
+            rm -rf RPF-v1.0*  && \
 # Patch to fix compilation errors
-RUN patch -d 2011_sen_rpf -p1 -i /sbmc_app/patches/2011_sen_rpf.diff 
-RUN cd 2011_sen_rpf && make -j 4
+            patch -d 2011_sen_rpf -p1 -i /sbmc_app/patches/2011_sen_rpf.diff   && \
+            cd 2011_sen_rpf && make -j 4) || echo "Sen2011 could not be downloaded"
 
 # [Bitterli2016]
 RUN git clone https://github.com/tunabrain/tungsten.git 2016_bitterli_nfor
