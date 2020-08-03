@@ -100,7 +100,7 @@ def main():
         version=__version__,
         packages=packages,
         ext_modules=[extension],
-        install_requires=["torch-tools", "bridson", "pandas", "pyexr",
+        install_requires=["torch-tools==0.0.36", "bridson", "pandas", "pyexr",
                           "scikit-image", "lz4", "wget", "torch==1.2.0"],
         cmdclass=dict(build_ext=hlpt.HalideBuildExtension),
     )
