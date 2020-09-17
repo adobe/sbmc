@@ -90,7 +90,7 @@ RUN cd 2016_bitterli_nfor && mkdir build && cd build && cmake .. && make -j 4
 
 
 # Install Halide
-RUN wget -O halide.tgz https://github.com/halide/Halide/releases/download/release_2019_08_27/halide-linux-64-gcc53-800-65c26cba6a3eca2d08a0bccf113ca28746012cc3.tgz
+RUN wget -O halide.tgz https://github.com/halide/Halide/releases/download/v8.0.0/halide-linux-64-gcc53-800-65c26cba6a3eca2d08a0bccf113ca28746012cc3.tgz
 RUN tar zvxf halide.tgz
 RUN rm -rf halide.tgz
 ENV HALIDE_DISTRIB_DIR /sbmc_app/halide
@@ -98,7 +98,7 @@ ENV HALIDE_DISTRIB_DIR /sbmc_app/halide
 
 # Python Environment ----------------------------------------------------------
 RUN curl -o /sbmc_app/anaconda.sh -O \
-        https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
+        https://repo.anaconda.com/miniconda/Miniconda3-py37_4.8.3-Linux-x86_64.sh && \
     sha256sum /sbmc_app/anaconda.sh && \
     chmod a+x /sbmc_app/anaconda.sh && \
     /sbmc_app/anaconda.sh -b -p /sbmc_app/anaconda
